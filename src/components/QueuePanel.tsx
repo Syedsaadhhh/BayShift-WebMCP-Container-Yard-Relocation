@@ -1,7 +1,7 @@
 import React from 'react';
 import { YardState } from '../domain/types';
 import { findContainerLocation } from '../domain/engine';
-import { CheckCircle2, ArrowDownCircle, AlertCircle } from 'lucide-react';
+import { Package, ArrowDownCircle, AlertTriangle, Layers, Clock } from 'lucide-react';
 
 interface QueuePanelProps {
   state: YardState;
@@ -17,91 +17,100 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({ state, onRetrieveCurrent
   const isTargetReady = targetLocation ? targetLocation.isTop : false;
 
   return (
-    <div className="rail-section">
+    <div className="rail-section queue-section">
       <div className="rail-title">
-        <span>Retrieval Priority Queue</span>
-        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-dim)' }}>
-          {state.queue.length} pending
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Package size={14} color="var(--actor-agent)" />
+          <span>VESSEL PICKUP QUEUE</span>
+        </div>
+        <span className="queue-count-badge">
+          {state.queue.length} MANIFEST UNITS
         </span>
       </div>
 
       {state.queue.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--status-success)', padding: '10px 0' }}>
-          &check; All containers retrieved! Bay clearance complete.
+        <div className="queue-completed-card">
+          &check; All priority manifest units retrieved successfully.
         </div>
       ) : (
         <>
-          {/* Current Head of Queue Card */}
+          {/* Priority Head of Queue Card */}
           {currentTargetId && (
-            <div
-              style={{
-                background: isTargetReady
-                  ? 'rgba(16, 185, 129, 0.1)'
-                  : 'rgba(245, 158, 11, 0.08)',
-                border: `1px solid ${isTargetReady ? '#059669' : '#b45309'}`,
-                borderRadius: 'var(--radius-sm)',
-                padding: '10px',
-                marginBottom: '12px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: isTargetReady ? '#34d399' : '#fbbf24' }}>
-                  NEXT PICKUP: {currentTargetId}
-                </span>
-                <span
-                  className="badge"
-                  style={{
-                    background: isTargetReady ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                    color: isTargetReady ? '#34d399' : '#fbbf24',
-                    fontSize: 10
-                  }}
-                >
-                  {isTargetReady ? 'EXPOSED / TOP' : `BURIED (${targetLocation?.depth ?? 0} BLOCKERS)`}
+            <div className={`head-pickup-card ${isTargetReady ? 'pickup-ready' : 'pickup-blocked'}`}>
+              <div className="pickup-card-top">
+                <div className="pickup-id-badge">
+                  <span className="pickup-rank-label">NEXT PICKUP #1</span>
+                  <span className="pickup-container-id">{currentTargetId}</span>
+                </div>
+                <span className={`pickup-status-chip ${isTargetReady ? 'chip-ready' : 'chip-blocked'}`}>
+                  {isTargetReady ? 'READY FOR CRANE' : 'BURIED'}
                 </span>
               </div>
 
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0' }}>
-                Location: {targetLocation ? `Stack ${targetLocation.stack.id} (Slot ${targetLocation.index + 1})` : 'Unknown'}
+              <div className="pickup-details">
+                <div className="detail-item">
+                  <span className="detail-label">Bay Location:</span>
+                  <span className="detail-val">
+                    {targetLocation ? `Stack ${targetLocation.stack.id} &bull; Tier ${targetLocation.index + 1}` : 'Unknown'}
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Blocker Depth:</span>
+                  <span className={`detail-val ${isTargetReady ? 'text-emerald' : 'text-amber'}`}>
+                    {targetLocation?.depth === 0 ? '0 (Topmost)' : `${targetLocation?.depth ?? 0} units above`}
+                  </span>
+                </div>
               </div>
 
               {isTargetReady ? (
                 <button
                   type="button"
-                  className="btn-primary"
-                  style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+                  className="crane-dispatch-btn"
                   onClick={onRetrieveCurrentTarget}
                 >
-                  <ArrowDownCircle size={14} /> Dispatch Crane: Retrieve {currentTargetId}
+                  <ArrowDownCircle size={15} /> Dispatch Crane: Retrieve {currentTargetId}
                 </button>
               ) : (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                  <AlertCircle size={12} color="#fbbf24" /> Relocate blockers to expose for crane pickup
+                <div className="pickup-guidance-hint">
+                  <AlertTriangle size={12} color="#fbbf24" />
+                  <span>Relocate top blockers to clear retrieval path</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Upcoming items preview */}
-          <div className="queue-list">
-            {state.queue.slice(1, 6).map((id, idx) => {
-              const loc = findContainerLocation(state.stacks, id);
-              return (
-                <div key={id} className="queue-item">
-                  <div className="queue-item-left">
-                    <span className="queue-rank">#{idx + 2}</span>
-                    <span className="queue-id">{id}</span>
+          {/* Upcoming Manifest Schedule */}
+          <div className="upcoming-manifest">
+            <div className="manifest-subhead">
+              <Clock size={11} /> UPCOMING DISPATCH SCHEDULE
+            </div>
+            <div className="manifest-list">
+              {state.queue.slice(1, 5).map((id, idx) => {
+                const loc = findContainerLocation(state.stacks, id);
+                return (
+                  <div key={id} className="manifest-row">
+                    <div className="manifest-left">
+                      <span className="manifest-seq">#{idx + 2}</span>
+                      <span className="manifest-id">{id}</span>
+                    </div>
+                    <div className="manifest-right">
+                      {loc ? (
+                        <span className="manifest-loc">
+                          Stack {loc.stack.id} &bull; Tier {loc.index + 1}
+                        </span>
+                      ) : (
+                        <span className="manifest-dispatched">Retrieved</span>
+                      )}
+                    </div>
                   </div>
-                  <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
-                    {loc ? `Stack ${loc.stack.id} (${loc.isTop ? 'Top' : 'Slot ' + (loc.index + 1)})` : 'Retrieved'}
-                  </span>
+                );
+              })}
+              {state.queue.length > 5 && (
+                <div className="manifest-more">
+                  +{state.queue.length - 5} additional containers in vessel queue
                 </div>
-              );
-            })}
-            {state.queue.length > 6 && (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', padding: 4 }}>
-                +{state.queue.length - 6} more upcoming in queue
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </>
       )}

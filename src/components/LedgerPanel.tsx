@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActionEvent } from '../domain/types';
-import { RotateCcw, Activity } from 'lucide-react';
+import { RotateCcw, Activity, ShieldCheck, CornerDownLeft } from 'lucide-react';
 
 interface LedgerPanelProps {
   history: ActionEvent[];
@@ -13,18 +13,20 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
     <div className="ledger-section">
       <div className="ledger-header">
         <div className="ledger-title">
-          <Activity size={14} /> Shared Provenance & Operational Ledger
+          <Activity size={14} className="text-cyan" />
+          <span>SHARED OPERATIONAL &amp; PROVENANCE LEDGER</span>
+          <span className="ledger-event-counter">({history.length} logged events)</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+
+        <div className="ledger-actions-group">
           <button
             type="button"
-            className="btn-amber"
-            style={{ fontSize: 11, padding: '3px 8px' }}
+            className="btn-amber ledger-rewind-btn"
             disabled={!canRewind}
             onClick={() => onRewind()}
-            title="Rewind most recent reversible action"
+            title="Undo most recent reversible action"
           >
-            <RotateCcw size={12} /> Rewind Last Action
+            <RotateCcw size={12} /> Rewind Latest Action
           </button>
         </div>
       </div>
@@ -33,51 +35,86 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
         <table className="ledger-table">
           <thead>
             <tr>
-              <th style={{ width: 90 }}>Time</th>
-              <th style={{ width: 90 }}>Actor</th>
-              <th style={{ width: 110 }}>Action</th>
-              <th>Details & Operational Rationale</th>
-              <th style={{ width: 90, textAlign: 'right' }}>Reversible</th>
+              <th style={{ width: 85 }}>TIMESTAMP</th>
+              <th style={{ width: 100 }}>ACTOR</th>
+              <th style={{ width: 115 }}>ACTION</th>
+              <th>OPERATIONAL DETAILS &amp; RATIONALE</th>
+              <th style={{ width: 110, textAlign: 'right' }}>REVERSIBILITY</th>
             </tr>
           </thead>
           <tbody>
-            {history.map((evt) => {
-              let badgeClass = 'badge-system';
-              if (evt.actor === 'human') badgeClass = 'badge-human';
-              else if (evt.actor === 'agent') badgeClass = 'badge-agent';
+            {history.map((evt, idx) => {
+              let actorBadgeClass = 'badge-system';
+              if (evt.actor === 'human') actorBadgeClass = 'badge-human';
+              else if (evt.actor === 'agent') actorBadgeClass = 'badge-agent';
 
-              let detailText = '';
+              let detailContent: React.ReactNode = null;
               if (evt.type === 'move') {
-                detailText = `Relocated container ${evt.payload.containerId} from Stack ${evt.payload.fromStack} to Stack ${evt.payload.toStack} (${evt.payload.travelSteps} crane steps). Rationale: ${evt.payload.rationale || 'N/A'}`;
+                detailContent = (
+                  <span>
+                    Relocated container <strong className="text-white">{String(evt.payload.containerId)}</strong> from{' '}
+                    <strong>Stack {String(evt.payload.fromStack)}</strong> &rarr;{' '}
+                    <strong>Stack {String(evt.payload.toStack)}</strong>{' '}
+                    <span className="detail-meta">({String(evt.payload.travelSteps)} crane steps)</span>
+                    {Boolean(evt.payload.rationale) && (
+                      <span className="detail-rationale">&mdash; &ldquo;{String(evt.payload.rationale)}&rdquo;</span>
+                    )}
+                  </span>
+                );
               } else if (evt.type === 'retrieve') {
-                detailText = `Retrieved target container ${evt.payload.containerId} from Stack ${evt.payload.retrievedFrom} to dispatch gate.`;
+                detailContent = (
+                  <span>
+                    Retrieved priority container <strong className="text-emerald">{String(evt.payload.containerId)}</strong> from{' '}
+                    <strong>Stack {String(evt.payload.retrievedFrom)}</strong> to terminal dispatch gate.
+                  </span>
+                );
               } else if (evt.type === 'lock' || evt.type === 'unlock') {
-                detailText = `Stack ${evt.payload.stackId} ${evt.payload.locked ? 'LOCKED' : 'UNLOCKED'}: ${evt.payload.reason}`;
+                detailContent = (
+                  <span>
+                    Corridor <strong>Stack {String(evt.payload.stackId)}</strong> {evt.payload.locked ? 'LOCKED' : 'UNLOCKED'}:{' '}
+                    <span className="text-muted">{String(evt.payload.reason)}</span>
+                  </span>
+                );
               } else if (evt.type === 'priority_change') {
-                detailText = `${evt.payload.event}: ${evt.payload.detail}`;
+                detailContent = (
+                  <span>
+                    <strong className="text-amber">{String(evt.payload.event)}:</strong> {String(evt.payload.detail)}
+                  </span>
+                );
               } else if (evt.type === 'rewind') {
-                detailText = `Undid action ${evt.payload.rewoundType} (${evt.payload.rewoundEventId}), restoring bay snapshot.`;
+                detailContent = (
+                  <span>
+                    Restored pre-action yard snapshot for event <code className="code-tag">{String(evt.payload.rewoundEventId)}</code>.
+                  </span>
+                );
               } else if (evt.type === 'reset') {
-                detailText = `${evt.payload.message}`;
+                detailContent = <span>{String(evt.payload.message)}</span>;
               } else {
-                detailText = JSON.stringify(evt.payload);
+                detailContent = <span>{JSON.stringify(evt.payload)}</span>;
               }
 
               return (
-                <tr key={evt.id}>
-                  <td style={{ color: 'var(--text-dim)', fontSize: 11 }}>{evt.timestamp}</td>
+                <tr key={evt.id} className={`ledger-row ${idx === 0 ? 'is-latest' : ''}`}>
+                  <td className="timestamp-cell">{evt.timestamp}</td>
                   <td>
-                    <span className={`badge ${badgeClass}`}>{evt.actor}</span>
+                    <span className={`badge ${actorBadgeClass}`}>
+                      {evt.actor === 'agent' ? '🤖 AGENT' : evt.actor === 'human' ? '👤 HUMAN' : '⚙️ SYSTEM'}
+                    </span>
                   </td>
-                  <td style={{ fontWeight: 600, textTransform: 'uppercase', fontSize: 11 }}>
-                    {evt.type}
-                  </td>
-                  <td style={{ color: 'var(--text-main)', fontSize: 12 }}>{detailText}</td>
+                  <td className="action-type-cell">{evt.type}</td>
+                  <td className="detail-cell">{detailContent}</td>
                   <td style={{ textAlign: 'right' }}>
                     {evt.reversible ? (
-                      <span style={{ fontSize: 10, color: 'var(--actor-human)' }}>Reversible</span>
+                      <button
+                        type="button"
+                        className="inline-undo-btn"
+                        onClick={() => onRewind(evt.id)}
+                        title={`Undo this ${evt.actor} action`}
+                      >
+                        <CornerDownLeft size={10} /> Undo
+                      </button>
                     ) : (
-                      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Permanent</span>
+                      <span className="permanent-tag">Permanent</span>
                     )}
                   </td>
                 </tr>

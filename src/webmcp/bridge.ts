@@ -59,6 +59,9 @@ export class WebMCPBridge {
     }
   }
 
+  private isRegisteringRetrieve = false;
+  private isRegisteringRewind = false;
+
   public syncWithState(state: YardState): void {
     // 1. Check retrieve_target eligibility:
     // Only registered if current queue target exists AND is physically topmost in its stack
@@ -71,8 +74,11 @@ export class WebMCPBridge {
       }
     }
 
-    if (isTargetRetrievable && !this.retrieveAbortController) {
-      this.registerRetrieveTool();
+    if (isTargetRetrievable && !this.retrieveAbortController && !this.isRegisteringRetrieve) {
+      this.isRegisteringRetrieve = true;
+      this.registerRetrieveTool().finally(() => {
+        this.isRegisteringRetrieve = false;
+      });
     } else if (!isTargetRetrievable && this.retrieveAbortController) {
       this.unregisterRetrieveTool();
     }
@@ -80,8 +86,11 @@ export class WebMCPBridge {
     // 2. Check rewind_last_action eligibility:
     // Only registered if a reversible action exists in recent history
     const hasReversibleAction = state.history.some((e) => e.reversible && !!e.snapshotBefore);
-    if (hasReversibleAction && !this.rewindAbortController) {
-      this.registerRewindTool();
+    if (hasReversibleAction && !this.rewindAbortController && !this.isRegisteringRewind) {
+      this.isRegisteringRewind = true;
+      this.registerRewindTool().finally(() => {
+        this.isRegisteringRewind = false;
+      });
     } else if (!hasReversibleAction && this.rewindAbortController) {
       this.unregisterRewindTool();
     }
@@ -308,8 +317,10 @@ export class WebMCPBridge {
           },
           { signal }
         );
-      } catch (err) {
-        console.warn(`[WebMCP] registerTool failed for ${def.name}:`, err);
+      } catch (err: any) {
+        if (err && err.name !== 'AbortError') {
+          console.warn(`[WebMCP] registerTool failed for ${def.name}:`, err);
+        }
       }
     }
   }

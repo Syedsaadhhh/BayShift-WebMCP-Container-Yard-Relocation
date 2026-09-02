@@ -11,7 +11,10 @@ import { createInitialState } from './domain/scenario';
 import { YardState } from './domain/types';
 import { RegisteredToolInfo, WebMCPBridge } from './webmcp/bridge';
 import { BayCanvas } from './components/BayCanvas';
+import { MissionClarityStrip } from './components/MissionClarityStrip';
+import { WhatsHappeningCard } from './components/WhatsHappeningCard';
 import { QueuePanel } from './components/QueuePanel';
+import { InterventionPanel } from './components/InterventionPanel';
 import { MetricsPanel } from './components/MetricsPanel';
 import { LedgerPanel } from './components/LedgerPanel';
 import { JudgeWalkthroughModal } from './components/JudgeWalkthroughModal';
@@ -25,7 +28,9 @@ import {
   Wrench,
   Truck,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Cpu,
+  Bot
 } from 'lucide-react';
 import './App.css';
 
@@ -36,17 +41,17 @@ export const App: React.FC = () => {
   const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
   const [isWhyModalOpen, setIsWhyModalOpen] = useState(false);
   const [isToolInspectorOpen, setIsToolInspectorOpen] = useState(false);
-  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [bannerNotice, setBannerNotice] = useState<{ text: string; actor: 'human' | 'agent' | 'system' } | null>(null);
 
-  // Keep ref for fresh state access in async WebMCP callbacks
+  // Ref for fresh state access in async WebMCP callbacks
   const stateRef = useRef<YardState>(state);
   stateRef.current = state;
 
   const bridgeRef = useRef<WebMCPBridge | null>(null);
 
-  const showBanner = (msg: string) => {
-    setBannerMessage(msg);
-    setTimeout(() => setBannerMessage(null), 3500);
+  const showBanner = (text: string, actor: 'human' | 'agent' | 'system' = 'system') => {
+    setBannerNotice({ text, actor });
+    setTimeout(() => setBannerNotice(null), 3500);
   };
 
   // Initialize WebMCP Bridge
@@ -89,18 +94,18 @@ export const App: React.FC = () => {
   const handleHumanMove = useCallback((containerId: string, fromStack: string, toStack: string) => {
     const result = applyMove(stateRef.current, 'human', { containerId, fromStack, toStack });
     if (!result.ok) {
-      showBanner(`Move rejected: ${result.message}`);
+      showBanner(`Move rejected: ${result.message}`, 'system');
       return;
     }
     setState(result.data!);
-    showBanner(`Relocated ${containerId} from Stack ${fromStack} to Stack ${toStack}`);
+    showBanner(`HUMAN OPERATOR relocated ${containerId} from Stack ${fromStack} to Stack ${toStack}`, 'human');
   }, []);
 
   const handleToggleLock = useCallback((stackId: string, locked: boolean) => {
     const result = setStackLock(stateRef.current, 'human', { stackId, locked });
     if (result.ok && result.data) {
       setState(result.data);
-      showBanner(`Stack ${stackId} ${locked ? 'Locked' : 'Unlocked'}`);
+      showBanner(`HUMAN OPERATOR ${locked ? 'LOCKED' : 'UNLOCKED'} Corridor Stack ${stackId}`, 'human');
     }
   }, []);
 
@@ -108,7 +113,7 @@ export const App: React.FC = () => {
     const result = triggerLateTruckUpdate(stateRef.current, 'human');
     if (result.ok && result.data) {
       setState(result.data);
-      showBanner('Late truck arrived: C08 priority expedited to #2; Stack D reserved/locked.');
+      showBanner('LATE TRUCK ARRIVAL: C08 expedited to Queue #2; Stack D locked for staging', 'human');
     }
   }, []);
 
@@ -117,28 +122,28 @@ export const App: React.FC = () => {
     const targetId = state.queue[0];
     const result = retrieveTarget(stateRef.current, 'human', { containerId: targetId });
     if (!result.ok) {
-      showBanner(`Retrieval rejected: ${result.message}`);
+      showBanner(`Retrieval rejected: ${result.message}`, 'system');
       return;
     }
     setState(result.data!);
-    showBanner(`Successfully retrieved ${targetId} out of the bay!`);
+    showBanner(`TARGET RETRIEVED: Dispatched ${targetId} out of bay to terminal gate!`, 'human');
   }, [state.queue]);
 
   const handleRewind = useCallback((eventId?: string) => {
     const result = rewindLastAction(stateRef.current, 'human', { eventId });
     if (!result.ok) {
-      showBanner(`Rewind failed: ${result.message}`);
+      showBanner(`Rewind failed: ${result.message}`, 'system');
       return;
     }
     setState(result.data!);
-    showBanner(result.message);
+    showBanner(result.message, 'human');
   }, []);
 
   const handleReset = useCallback(() => {
     const fresh = resetScenario('human');
     setState(fresh);
     setSelectedContainerId(null);
-    showBanner('Bay reset to initial scenario configuration.');
+    showBanner('Bay reset to deterministic initial scenario configuration', 'system');
   }, []);
 
   const handleSimulatePrompt = async (promptIndex: number) => {
@@ -147,7 +152,7 @@ export const App: React.FC = () => {
       // Prompt A: Inspect yard and analyze C01 blocker chain (read-only)
       await bridgeRef.current.executeSimulatedTool('inspect_yard', {});
       await bridgeRef.current.executeSimulatedTool('analyze_target', { containerId: 'C01' });
-      showBanner('Prompt A simulated: Inspected bay and analyzed C01 blocker chain.');
+      showBanner('AGENT (WebMCP): Inspected bay and analyzed C01 blocker chain (read-only)', 'agent');
     } else if (promptIndex === 1) {
       // Prompt B: Clear C01 without using Stack D, then retrieve
       await bridgeRef.current.executeSimulatedTool('move_container', {
@@ -165,13 +170,13 @@ export const App: React.FC = () => {
       await bridgeRef.current.executeSimulatedTool('retrieve_target', {
         containerId: 'C01'
       });
-      showBanner('Prompt B simulated: Autonomous clearance and retrieval of C01 complete!');
+      showBanner('AGENT (WebMCP): Cleared blockers and retrieved priority container C01!', 'agent');
     } else if (promptIndex === 2) {
       // Prompt C: Late truck update operator constraint & agent re-inspection
       handleLateTruck();
       await bridgeRef.current.executeSimulatedTool('inspect_yard', {});
       await bridgeRef.current.executeSimulatedTool('analyze_target', { containerId: 'C08' });
-      showBanner('Prompt C simulated: Operator constraint updated (Late truck); Agent re-inspected yard.');
+      showBanner('AGENT (WebMCP): Detected Late Truck update and re-inspected yard constraints', 'agent');
     } else if (promptIndex === 3) {
       // Optional Failure Prompt: Move to locked Stack D, expect rejection, then recover
       setStackLock(stateRef.current, 'human', { stackId: 'D', locked: true });
@@ -187,9 +192,9 @@ export const App: React.FC = () => {
         containerId: 'C07',
         fromStack: 'B',
         toStack: 'E',
-        rationale: 'Agent error recovery: Relocating to unlocked Stack E after Stack D rejection'
+        rationale: 'Agent recovery: Relocating to unlocked Stack E after Stack D rejection'
       });
-      showBanner(`Failure prompt simulated: Stack D rejected (${parsed.code}); Agent recovered to Stack E.`);
+      showBanner(`AGENT (WebMCP): Handled ${parsed.code} rejection & recovered to Stack E`, 'agent');
     }
   };
 
@@ -197,15 +202,15 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* Top Navigation Bar */}
+      {/* Top Industrial Operational Header */}
       <header className="top-bar">
         <div className="top-bar-left">
           <div className="logo-area">
-            <Box className="logo-icon" size={20} />
-            <span>BayShift</span>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 500 }}>
-              &bull; WebMCP Relocation Canvas
-            </span>
+            <Box className="logo-icon" size={22} />
+            <div className="logo-text-group">
+              <span className="product-title">BayShift</span>
+              <span className="product-subtitle">Shared Container-Yard Relocation Canvas</span>
+            </div>
           </div>
 
           <div
@@ -213,22 +218,28 @@ export const App: React.FC = () => {
             title={
               isWebMCPSupported
                 ? 'document.modelContext active and responding to agent semantic tools'
-                : 'WebMCP document.modelContext unavailable in this browser. Operating in manual operator mode with embedded tool simulator.'
+                : 'WebMCP document.modelContext unavailable in this browser session. Operating in manual operator mode with Developer Inspector available.'
             }
           >
             {isWebMCPSupported ? 'WebMCP: Connected' : 'Manual Mode (WebMCP Unavailable)'}
           </div>
 
-          <span
-            className="badge"
-            style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)' }}
-          >
-            Scenario: 5 Stacks &bull; 12 Containers
+          <span className="badge badge-scenario">
+            5 Stacks &bull; 12 Containers &bull; NP-Hard Bay
+          </span>
+
+          <span className="badge badge-shared-state">
+            <Bot size={11} style={{ marginRight: 3 }} /> Human + Agent Shared State
           </span>
         </div>
 
         <div className="top-bar-actions">
-          <button type="button" className="btn-amber" onClick={handleLateTruck} title="Simulate late truck priority change">
+          <button
+            type="button"
+            className="btn-amber"
+            onClick={handleLateTruck}
+            title="Simulate unscheduled late truck expedited arrival at terminal gate"
+          >
             <Truck size={14} /> Late Truck Update
           </button>
 
@@ -241,13 +252,17 @@ export const App: React.FC = () => {
             <RotateCcw size={14} /> Rewind
           </button>
 
-          <button type="button" onClick={handleReset} title="Reset scenario to deterministic initial state">
+          <button
+            type="button"
+            onClick={handleReset}
+            title="Reset scenario to deterministic initial state"
+          >
             <RefreshCw size={14} /> Reset
           </button>
 
           <button
             type="button"
-            className="btn-cyan"
+            className="btn-cyan btn-judge"
             onClick={() => setIsJudgeModalOpen(true)}
             title="Open Judge Walkthrough with copy-paste prompts"
           >
@@ -256,39 +271,43 @@ export const App: React.FC = () => {
 
           <button
             type="button"
+            className="btn-inspector"
             onClick={() => setIsToolInspectorOpen(true)}
             title="Developer / Judge Inspector (Simulation Only — not native WebMCP)"
           >
             <Wrench size={14} /> Developer Inspector ({registeredTools.length})
           </button>
 
-          <button type="button" onClick={() => setIsWhyModalOpen(true)} title="Why This Matters operational context">
+          <button
+            type="button"
+            onClick={() => setIsWhyModalOpen(true)}
+            title="Why This Matters operational context"
+          >
             <HelpCircle size={14} />
           </button>
         </div>
       </header>
 
-      {/* Banner message alert */}
-      {bannerMessage && (
-        <div
-          style={{
-            background: 'var(--bg-surface-elevated)',
-            borderBottom: '1px solid var(--border-active)',
-            padding: '6px 20px',
-            fontSize: 12,
-            color: '#38bdf8',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}
-        >
-          <CheckCircle size={14} color="#38bdf8" />
-          <span>{bannerMessage}</span>
+      {/* 10-Second Mission Clarity Explainer Strip */}
+      <MissionClarityStrip />
+
+      {/* Action / Event Pulse Banner */}
+      {bannerNotice && (
+        <div className={`event-pulse-banner banner-${bannerNotice.actor}`}>
+          {bannerNotice.actor === 'agent' ? (
+            <Bot size={15} />
+          ) : bannerNotice.actor === 'human' ? (
+            <CheckCircle size={15} />
+          ) : (
+            <AlertTriangle size={15} />
+          )}
+          <span>{bannerNotice.text}</span>
         </div>
       )}
 
-      {/* Main Operations Canvas Area */}
+      {/* Main Operations Workspace Area */}
       <div className="main-layout">
+        {/* Center / Left: 2.5D Container Yard Canvas */}
         <BayCanvas
           state={state}
           onHumanMove={handleHumanMove}
@@ -297,32 +316,36 @@ export const App: React.FC = () => {
           onSelectContainer={setSelectedContainerId}
         />
 
-        {/* Right Sidebar: Queue, Controls, Metrics */}
+        {/* Right Rail: Situation Analysis, Queue, Interventions, Metrics */}
         <aside className="right-rail">
-          <QueuePanel state={state} onRetrieveCurrentTarget={handleRetrieveCurrentTarget} />
+          <WhatsHappeningCard
+            state={state}
+            onRetrieveCurrentTarget={handleRetrieveCurrentTarget}
+          />
 
-          <div className="rail-section">
-            <div className="rail-title">
-              <span>Operator Interventions</span>
-            </div>
-            <div className="operator-controls">
-              <button type="button" className="btn-amber" onClick={handleLateTruck}>
-                <Truck size={14} /> Inject Late Truck Update
-              </button>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                Expedites pickup for C08 to position #2 and reserves/locks Stack D. Forces agent to re-inspect and adapt plans.
-              </div>
-            </div>
-          </div>
+          <QueuePanel
+            state={state}
+            onRetrieveCurrentTarget={handleRetrieveCurrentTarget}
+          />
+
+          <InterventionPanel
+            state={state}
+            onLateTruck={handleLateTruck}
+            onToggleLock={handleToggleLock}
+          />
 
           <MetricsPanel metrics={state.metrics} />
         </aside>
       </div>
 
-      {/* Bottom Ledger Area */}
-      <LedgerPanel history={state.history} onRewind={handleRewind} canRewind={canRewind} />
+      {/* Bottom Area: Shared Provenance Ledger */}
+      <LedgerPanel
+        history={state.history}
+        onRewind={handleRewind}
+        canRewind={canRewind}
+      />
 
-      {/* Drawers / Modals */}
+      {/* Modals & Drawers */}
       <JudgeWalkthroughModal
         isOpen={isJudgeModalOpen}
         onClose={() => setIsJudgeModalOpen(false)}
@@ -330,7 +353,10 @@ export const App: React.FC = () => {
         onSimulatePrompt={handleSimulatePrompt}
       />
 
-      <WhyItMattersDrawer isOpen={isWhyModalOpen} onClose={() => setIsWhyModalOpen(false)} />
+      <WhyItMattersDrawer
+        isOpen={isWhyModalOpen}
+        onClose={() => setIsWhyModalOpen(false)}
+      />
 
       <ToolInspectorDrawer
         isOpen={isToolInspectorOpen}

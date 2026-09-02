@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Container, Stack, YardState } from '../domain/types';
-import { Lock, Unlock, ArrowRight, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Lock, Unlock, ArrowDown, ShieldAlert, Cpu } from 'lucide-react';
 import { findContainerLocation } from '../domain/engine';
+import { ContainerUnit } from './ContainerUnit';
 
 interface BayCanvasProps {
   state: YardState;
@@ -28,13 +29,11 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
 
   const handleContainerClick = (container: Container, stack: Stack, isTop: boolean) => {
     if (!isTop) {
-      // Just select for detail inspection
       onSelectContainer(container.id);
       return;
     }
 
     if (selectedContainerId === container.id) {
-      // Toggle off
       onSelectContainer(null);
     } else {
       onSelectContainer(container.id);
@@ -48,7 +47,6 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
       return;
     }
 
-    // Attempt move
     onHumanMove(
       selectedLocation.stack.containers[selectedLocation.index].id,
       selectedLocation.stack.id,
@@ -57,174 +55,175 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
     onSelectContainer(null);
   };
 
+  // Find the active crane trolley position (defaults to selected container stack, or target stack)
+  const activeTrolleyStackId = selectedLocation?.stack.id || targetLocation?.stack.id || 'B';
+
   return (
     <div className="bay-canvas-section">
-      <div className="bay-header">
-        <div className="bay-title">
-          <span>Container Bay Grid (5 Stacks &bull; Max Capacity 4)</span>
-          {selectedLocation && (
-            <span style={{ fontSize: 12, color: 'var(--actor-human)', marginLeft: 12 }}>
-              &rarr; Selected top container <strong>{selectedContainerId}</strong>. Click an open destination stack to relocate.
-            </span>
-          )}
+      {/* Overhead RTG Crane Runway Gantry */}
+      <div className="crane-gantry-beam">
+        <div className="crane-rail-line">
+          <div className="crane-hazard-stripes" />
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          Only top container of each stack can be moved directly
+        <div className="crane-trolley-track">
+          <div className={`crane-spreader trolley-at-${activeTrolleyStackId.toLowerCase()}`}>
+            <div className="spreader-cable" />
+            <div className="spreader-head">
+              <span className="spreader-label">RTG-CRANE #01</span>
+              {selectedContainerId && <span className="spreader-hook-active">&bull; HOOK ENGAGED</span>}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="stacks-grid">
-        {state.stacks.map((stack) => {
-          const isSourceOfSelection = selectedLocation?.stack.id === stack.id;
-          const isLegalTargetForSelection =
-            selectedLocation &&
-            selectedLocation.isTop &&
-            !isSourceOfSelection &&
-            !stack.locked &&
-            stack.containers.length < stack.capacity;
+      {/* Terminal Yard Floor & Bays Grid */}
+      <div className="terminal-yard-plane">
+        <div className="stacks-grid">
+          {state.stacks.map((stack) => {
+            const isSourceOfSelection = selectedLocation?.stack.id === stack.id;
+            const isLegalTargetForSelection =
+              selectedLocation &&
+              selectedLocation.isTop &&
+              !isSourceOfSelection &&
+              !stack.locked &&
+              stack.containers.length < stack.capacity;
 
-          return (
-            <div
-              key={stack.id}
-              className={`stack-column ${stack.locked ? 'locked-stack' : ''} ${
-                isLegalTargetForSelection ? 'selected-dest' : ''
-              }`}
-              onClick={() => {
-                if (isLegalTargetForSelection) {
-                  handleStackClick(stack);
-                }
-              }}
-              style={{ cursor: isLegalTargetForSelection ? 'pointer' : 'default' }}
-            >
-              <div className="stack-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="stack-label">STACK {stack.id}</span>
-                  {stack.locked && (
-                    <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }}>
-                      ⛔ LOCKED
-                    </span>
-                  )}
+            return (
+              <div
+                key={stack.id}
+                className={`bay-stack-column ${stack.locked ? 'bay-locked' : ''} ${
+                  isLegalTargetForSelection ? 'bay-droppable' : ''
+                } ${isSourceOfSelection ? 'bay-source' : ''}`}
+                onClick={() => {
+                  if (isLegalTargetForSelection) {
+                    handleStackClick(stack);
+                  }
+                }}
+                style={{ cursor: isLegalTargetForSelection ? 'pointer' : 'default' }}
+              >
+                {/* Bay Header */}
+                <div className="bay-header-strip">
+                  <div className="bay-id-group">
+                    <span className="bay-lane-tag">BAY 0{stack.id}</span>
+                    <span className="bay-name">STACK {stack.id}</span>
+                  </div>
+
+                  {/* Vertical Capacity LED Meter */}
+                  <div className="bay-meter" title={`Occupancy: ${stack.containers.length} of ${stack.capacity}`}>
+                    {Array.from({ length: stack.capacity }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`meter-dot ${i < stack.containers.length ? 'dot-active' : ''}`}
+                      />
+                    ))}
+                    <span className="meter-count">{stack.containers.length}/{stack.capacity}</span>
+                  </div>
                 </div>
-                <span className="stack-capacity-badge">
-                  {stack.containers.length} / {stack.capacity}
-                </span>
-              </div>
 
-              {/* Stacks slots: 4 slots total */}
-              <div className="stack-slots">
-                {Array.from({ length: stack.capacity }).map((_, slotIndex) => {
-                  const container = stack.containers[slotIndex];
-                  const isTop = container && slotIndex === stack.containers.length - 1;
-                  const isTarget = container && container.id === currentTarget;
-                  const isBuried = isTarget && !isTop;
-                  const isSelected = container && container.id === selectedContainerId;
+                {/* Locked Hazard Overlay if stack is locked */}
+                {stack.locked && (
+                  <div className="bay-lock-banner">
+                    <div className="hazard-tape" />
+                    <div className="lock-content">
+                      <ShieldAlert size={16} />
+                      <span>LOCKED: SAFETY CORRIDOR</span>
+                    </div>
+                  </div>
+                )}
 
-                  // Active blocker check: if in target's stack and above target
-                  const isBlockerAboveTarget =
-                    container &&
-                    targetLocation &&
-                    targetLocation.stack.id === stack.id &&
-                    slotIndex > targetLocation.index;
+                {/* Stacks slots: 4 vertical tiers (tier 0 at bottom, tier 3 at top) */}
+                <div className="bay-tier-slots">
+                  {Array.from({ length: stack.capacity }).map((_, slotIndex) => {
+                    const container = stack.containers[slotIndex];
+                    const isTop = container && slotIndex === stack.containers.length - 1;
+                    const isTarget = container && container.id === currentTarget;
+                    const isBuried = isTarget && !isTop;
+                    const isSelected = container && container.id === selectedContainerId;
 
-                  if (!container) {
-                    const isNextDropSlot = slotIndex === stack.containers.length && isLegalTargetForSelection;
+                    // Active blocker index
+                    let blockerIndex: number | null = null;
+                    if (
+                      container &&
+                      targetLocation &&
+                      targetLocation.stack.id === stack.id &&
+                      slotIndex > targetLocation.index
+                    ) {
+                      blockerIndex = slotIndex - targetLocation.index;
+                    }
+
+                    if (!container) {
+                      const isNextDropSlot = slotIndex === stack.containers.length && isLegalTargetForSelection;
+                      return (
+                        <div
+                          key={`empty-${slotIndex}`}
+                          className={`bay-slot-box slot-empty ${isNextDropSlot ? 'drop-target-active' : ''}`}
+                        >
+                          {/* Corner Twistlock Shoes */}
+                          <div className="twistlock-shoe tl" />
+                          <div className="twistlock-shoe tr" />
+                          <div className="twistlock-shoe bl" />
+                          <div className="twistlock-shoe br" />
+
+                          {isNextDropSlot ? (
+                            <div className="drop-prompt">
+                              <ArrowDown size={14} className="bounce-anim" />
+                              <span>CLICK TO RELOCATE HERE</span>
+                            </div>
+                          ) : (
+                            <span className="empty-slot-label">TIER {slotIndex + 1} (OPEN)</span>
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div
-                        key={`empty-${slotIndex}`}
-                        className={`slot-box slot-empty ${isNextDropSlot ? 'droppable-target' : ''}`}
-                      >
-                        {isNextDropSlot ? (
-                          <span style={{ color: 'var(--actor-agent)', fontWeight: 600 }}>Click to Drop</span>
-                        ) : (
-                          `Slot ${slotIndex + 1} (Empty)`
-                        )}
+                      <div key={container.id} className="bay-slot-box slot-filled">
+                        <ContainerUnit
+                          container={container}
+                          isTop={Boolean(isTop)}
+                          isTarget={Boolean(isTarget)}
+                          isBuried={Boolean(isBuried)}
+                          isSelected={Boolean(isSelected)}
+                          blockerIndex={blockerIndex}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleContainerClick(container, stack, Boolean(isTop));
+                          }}
+                        />
                       </div>
                     );
-                  }
+                  })}
+                </div>
 
-                  let priorityClass = '';
-                  if (container.priority <= 2) priorityClass = 'p-urgent';
-                  else if (container.priority <= 5) priorityClass = 'p-high';
-
-                  return (
-                    <div
-                      key={container.id}
-                      className="slot-box"
+                {/* Bay Foundation & Operator Control */}
+                <div className="bay-foundation">
+                  <div className="foundation-curb">
+                    <span className="ground-marker">LANE-{stack.id}</span>
+                    <button
+                      type="button"
+                      className={`lock-toggle-btn ${stack.locked ? 'is-locked' : 'is-unlocked'}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleContainerClick(container, stack, isTop);
+                        onToggleLock(stack.id, !stack.locked);
                       }}
+                      title={stack.locked ? 'Unlock stack corridor for crane moves' : 'Lock stack corridor (safety reservation)'}
                     >
-                      <div
-                        className={`container-card ${isTop ? 'is-top' : ''} ${
-                          isSelected ? 'is-selected' : ''
-                        } ${isTarget ? 'is-current-target' : ''} ${isBuried ? 'is-buried' : ''}`}
-                      >
-                        <div className="container-header">
-                          <span className="container-id">{container.id}</span>
-                          <span className={`container-priority ${priorityClass}`}>
-                            P{container.priority}
-                          </span>
-                        </div>
-
-                        <div className="container-label" title={container.label}>
-                          {container.label || 'Cargo Container'}
-                        </div>
-
-                        <div className="container-badges">
-                          {isTarget && (
-                            <span className="tag-target">
-                              {isTop ? '🎯 TARGET READY' : '🎯 TARGET (BURIED)'}
-                            </span>
-                          )}
-                          {!isTarget && isBlockerAboveTarget && (
-                            <span className="tag-blocker">
-                              ⚠️ BLOCKER #{slotIndex - (targetLocation?.index ?? 0)}
-                            </span>
-                          )}
-                          {isTop && !isTarget && !isBlockerAboveTarget && (
-                            <span className="tag-top">TOP MOVABLE</span>
-                          )}
-                          {isTop && isBlockerAboveTarget && (
-                            <span className="tag-top">&bull; TOP</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      {stack.locked ? (
+                        <>
+                          <Unlock size={11} /> Unlock Corridor
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={11} /> Lock Corridor
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <div className="stack-footer">
-                <button
-                  type="button"
-                  style={{ fontSize: 11, padding: '3px 8px' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleLock(stack.id, !stack.locked);
-                  }}
-                  title={stack.locked ? 'Unlock this stack for crane moves' : 'Lock this stack (operator reservation)'}
-                >
-                  {stack.locked ? (
-                    <>
-                      <Unlock size={12} /> Unlock
-                    </>
-                  ) : (
-                    <>
-                      <Lock size={12} /> Lock Stack
-                    </>
-                  )}
-                </button>
-
-                {isLegalTargetForSelection && (
-                  <span style={{ fontSize: 11, color: 'var(--actor-agent)', fontWeight: 600 }}>
-                    Relocate here &rarr;
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

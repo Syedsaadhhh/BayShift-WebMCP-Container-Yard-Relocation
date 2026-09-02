@@ -2,52 +2,58 @@
 
 **Project**: BayShift - Shared Container-Yard Relocation Canvas  
 **Standard**: WebMCP (`document.modelContext`)  
-**Status**: COMPLETE & HARDENED FOR JUDGE EVALUATION  
+**Status**: 2.5D VISUAL UPGRADE & OPERATIONAL PRODUCT HARDENING COMPLETE  
 
 ---
 
-## Native WebMCP & Client Status
+## Visual Upgrade & Judge-Ready Experience (Phase C1)
 
-- **Native WebMCP Status**: `NATIVE_WEBMCP_BLOCKED_BY_CLIENT`
-- **Client / Browser Detected**: Google Chrome `152.0.7977.65` (Windows x64)
-- **Native Test Requirement**: Requires launching Chrome with `--enable-features=ModelContextTesting,ModelContextAPI` or enabling `chrome://flags/#enable-webmcp-testing`.
-- **Manual Verification Procedure**: Fully documented in [`docs/NATIVE_WEBMCP_TEST.md`](docs/NATIVE_WEBMCP_TEST.md).
-- **Graceful Degradation**: In browsers without native `document.modelContext`, the app runs in **Manual Mode** with the **Developer / Judge Inspector** simulator available for verifying tool schemas and domain contracts.
+- [x] **10-Second Mission Clarity Strip**:
+  - [x] High-contrast operational header strip explaining: Current Goal, Physical Rule (only top moves), Human Operator role, AI Agent (WebMCP) role, and Audit/Reversibility.
+  - [x] "What's happening now" live situational analysis card summarizing target location, blocker chain, and recommended relocation stack.
+- [x] **2.5D Industrial Shipping Containers (`ContainerUnit`)**:
+  - [x] Corrugated vertical steel ribs texture with metallic specular lighting.
+  - [x] 4 corner castings per container (`[○]` ISO twistlock pockets).
+  - [x] 2.5D roof rail and bottom sill giving physical stacked depth.
+  - [x] Door locking rods and handles.
+  - [x] Industrial stencil serial typography (`ISO-C01`, `ISO-C07`).
+  - [x] Distinct freight color coding (perishables, chemicals, retail, steel, cold-chain).
+- [x] **Terminal Yard Environment Realism**:
+  - [x] Overhead RTG Crane runway beam with yellow/black industrial warning stripes.
+  - [x] Crane spreader trolley dynamically positioned over active stack.
+  - [x] Terminal yard floor plane with concrete bay striping (`BAY 01 - STACK A` through `BAY 05 - STACK E`).
+  - [x] Twistlock floor shoes on empty slot tiers with animated drop-target landing pads.
+  - [x] Vertical occupancy LED meters (`3/4`).
+  - [x] Heavy industrial hazard tape and padlock banner for locked corridors.
+- [x] **Human vs Agent Collaborative Visual Life**:
+  - [x] Amber event pulse banner for human operator interventions.
+  - [x] Cyan event pulse banner for autonomous agent actions.
+  - [x] Emerald celebration banner on target retrieval.
+  - [x] Real-time Late Truck Dispatch alert and staging corridor reservation.
+- [x] **Right Rail & Provenance Ledger**:
+  - [x] Live situation analysis card (`WhatsHappeningCard`).
+  - [x] Priority vessel pickup queue card with upcoming schedule manifest.
+  - [x] Operator intervention panel with late truck dispatch and corridor toggle chips.
+  - [x] Deterministic metrics grid with math formulas.
+  - [x] High-scanability provenance ledger with monospace timestamps, actor badges, and inline undo buttons.
 
 ---
 
-## Product & Judge Hardening Checklist
+## Native WebMCP & Bridge Lifecycle Notes
 
-- [x] **Primary Prompts Alignment**:
-  - [x] Prompt A: *"Inspect the yard and explain what blocks C01. Do not move anything yet."*
-  - [x] Prompt B: *"Clear C01 without using Stack D. Make one legal relocation at a time, check the state after each move, and retrieve C01 when it becomes available."*
-  - [x] Prompt C: *"The yard just changed because I updated an operator constraint. Re-inspect the current state before doing anything else, explain what changed, then continue legally."*
-  - [x] Failure Prompt: *"Try moving the current top blocker to locked Stack D. If rejected, use the structured error to recover."*
-- [x] **Developer / Judge Inspector**:
-  - [x] Clearly titled "Developer / Judge Inspector".
-  - [x] Prominent warning banner: *"Simulation only — not native WebMCP"*.
-  - [x] Distinct from native agent execution.
-- [x] **Visual Hierarchy (15-20 Second Readability)**:
-  - [x] Obvious target badge (`🎯 TARGET (BURIED)` vs `🎯 TARGET READY`).
-  - [x] Automatic active blocker tags (`⚠️ BLOCKER #1`, `⚠️ BLOCKER #2`) on all containers above current target.
-  - [x] Top movable container markers (`TOP MOVABLE`).
-  - [x] High-visibility lock badge and red column border (`⛔ LOCKED`).
-  - [x] Distinct actor provenance in ledger: `HUMAN` (amber), `AGENT` (cyan), `SYSTEM` (gray).
-- [x] **Display & Viewport Compatibility**:
-  - [x] Compact slot-box height (66px) and ledger height (195px).
-  - [x] Fits comfortably without clipping at `1366x768` and `1440x900`.
-- [x] **Co-Operational Scenario**:
-  - [x] Late Truck Update button visibly expedites C08 to position #2 in queue and locks Stack D.
-  - [x] Provenance recorded in ledger.
-  - [x] Agent forced to adapt plan.
+- **Native WebMCP Status**: `NATIVE_WEBMCP_BLOCKED_BY_CLIENT` in headless desktop session (procedure for Chrome 149+ with `chrome://flags/#enable-webmcp-testing` documented in `docs/NATIVE_WEBMCP_TEST.md`).
+- **Bridge Lifecycle Cleanup**:
+  - Added concurrency guard flags (`isRegisteringRetrieve`, `isRegisteringRewind`) preventing duplicate in-flight registration attempts during rapid state transitions.
+  - Silenced benign `AbortError` log noise in `registerToolSafely` caused by standard AbortController unregistration events.
+  - Zero console warnings or lifecycle crashes during tool unregistration and re-registration.
 
 ---
 
 ## Verification Summary
 
-- **Automated Tests**: 18 of 18 passing across `tests/domain.test.ts` (14 domain tests) and `tests/webmcp.test.ts` (4 WebMCP lifecycle tests).
-- **Production Build**: Clean production build via `npm run build` (0 TypeScript errors, 200.66 kB bundle).
+- **Automated Tests**: 18 of 18 passing (`tests/domain.test.ts` & `tests/webmcp.test.ts`).
+- **Production Build**: Clean production build via `npm run build` (0 TypeScript errors, 219.86 kB bundle).
 - **Dev Server**: Active on `http://127.0.0.1:5173/` (HTTP 200).
-- **Response Headers**: `Origin-Agent-Cluster: ?1` and `Permissions-Policy: tools=(self)` verified on live server.
-- **Remaining P0 Issues**: None.
-- **Remaining P1 Issues**: None.
+- **Response Headers**: `Origin-Agent-Cluster: ?1` and `Permissions-Policy: tools=(self)`.
+- **Viewport Compatibility**: Verified at `1366x768` and `1440x900` with zero clipping, ~118px vertical headroom, and no double scrollbars.
+- **Remaining P0/P1 Issues**: None.
