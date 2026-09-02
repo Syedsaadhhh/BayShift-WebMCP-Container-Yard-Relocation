@@ -285,7 +285,7 @@ button:disabled {
 }
 
 .slot-box {
-  min-height: 72px;
+  min-height: 66px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -537,7 +537,7 @@ button:disabled {
 
 /* Bottom Provenance Ledger */
 .ledger-section {
-  height: 220px;
+  height: 195px;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-subtle);
   display: flex;

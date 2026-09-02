@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Play, Terminal } from 'lucide-react';
+import { X, Copy, Check, Play, Terminal, ShieldAlert } from 'lucide-react';
 import { RegisteredToolInfo } from '../webmcp/bridge';
 
 interface JudgeWalkthroughModalProps {
@@ -19,26 +19,36 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
 
   if (!isOpen) return null;
 
-  const prompts = [
+  const primaryPrompts = [
     {
-      title: 'Prompt 1: Baseline Inspection & Blocker Analysis',
-      text: 'Inspect the yard and tell me what blocks C01, where it is located, and which stack is best to clear the top blocker to.',
+      id: 'A',
+      title: 'Prompt A: Inspect & Explain Blockers (Read-only Analysis)',
+      text: 'Inspect the yard and explain what blocks C01. Do not move anything yet.',
       expected:
-        'Agent invokes inspect_yard and analyze_target(containerId="C01"). Learns C01 is in Stack B buried under C04 and C07 (top). Notes Stack E has 3 open slots as low-risk candidate.'
+        'Agent invokes inspect_yard() and analyze_target(containerId="C01"). Identifies C01 is in Stack B, slot 0 (buried under C04 and top blocker C07). Notes open candidate stacks without performing mutations.'
     },
     {
-      title: 'Prompt 2: Safe Autonomous Clearance & Target Retrieval',
-      text: 'Clear C01 without using Stack D, then retrieve it.',
+      id: 'B',
+      title: 'Prompt B: Constraint-Aware Clearance & Retrieval',
+      text: 'Clear C01 without using Stack D. Make one legal relocation at a time, check the state after each move, and retrieve C01 when it becomes available.',
       expected:
-        'Agent moves C07 to Stack E (or A), then moves C04 to Stack A (or E). C01 becomes topmost. Dynamic tool retrieve_target unlocks. Agent invokes retrieve_target(containerId="C01").'
+        'Agent moves C07 from B to E (or A), checks state, moves C04 from B to A (or E). C01 becomes topmost; retrieve_target dynamically registers. Agent invokes retrieve_target(C01).'
     },
     {
-      title: 'Prompt 3: Invariant Violation & Structured Recovery',
-      text: 'Move the top container from Stack B to locked Stack D.',
+      id: 'C',
+      title: 'Prompt C: Co-Operational Adaptation (Late Truck Event)',
+      text: 'The yard just changed because I updated an operator constraint. Re-inspect the current state before doing anything else, explain what changed, then continue legally.',
       expected:
-        'Agent invokes move_container to Stack D. Domain engine rejects with ERR_DEST_LOCKED, returning open alternative stacks [A, C, E]. Agent recovers gracefully by picking an unlocked stack.'
+        'Agent invokes inspect_yard(). Discovers Stack D is locked by operator and container C08 has been expedited to queue position #2. Synthesizes revised plan avoiding Stack D.'
     }
   ];
+
+  const failurePrompt = {
+    title: 'Optional Failure Prompt: Invariant Violation & Error Recovery',
+    text: 'Try moving the current top blocker to locked Stack D. If rejected, use the structured error to recover.',
+    expected:
+      'Agent invokes move_container to Stack D. Engine rejects with ERR_DEST_LOCKED and returns legalNext: ["A", "C", "E"]. Agent parses structured error and successfully relocates to an unlocked stack.'
+  };
 
   const handleCopy = (text: string, idx: number) => {
     navigator.clipboard.writeText(text);
@@ -63,7 +73,7 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
           <p style={{ marginBottom: 12, color: 'var(--text-muted)' }}>
             BayShift implements the modern WebMCP specification via{' '}
             <code style={{ color: 'var(--actor-agent)' }}>document.modelContext</code>. Both the human
-            operator and the browser AI agent execute through the exact same deterministic domain engine.
+            crane operator and the browser AI agent execute through the exact same deterministic domain engine.
           </p>
 
           <div
@@ -76,7 +86,7 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
             }}
           >
             <div style={{ fontWeight: 600, color: 'var(--actor-agent)', fontSize: 12, marginBottom: 4 }}>
-              Active WebMCP Tool Registry ({registeredTools.length} tools registered)
+              Registered WebMCP Tools ({registeredTools.length} currently active):
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {registeredTools.map((t) => (
@@ -96,11 +106,11 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
           </div>
 
           <h4 style={{ fontSize: 13, marginBottom: 8, color: 'var(--text-main)' }}>
-            Evaluator Test Prompts (Copy-paste into WebMCP Browser Agent)
+            Primary Copy-Paste Evaluator Prompts
           </h4>
 
-          {prompts.map((p, idx) => (
-            <div key={idx} className="prompt-copy-block">
+          {primaryPrompts.map((p, idx) => (
+            <div key={p.id} className="prompt-copy-block">
               <div className="prompt-copy-header">
                 <span className="prompt-copy-title">{p.title}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -135,14 +145,55 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
             </div>
           ))}
 
-          <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)' }}>
+          <h4 style={{ fontSize: 13, margin: '14px 0 8px 0', color: 'var(--text-main)' }}>
+            Optional Failure & Recovery Prompt
+          </h4>
+
+          <div className="prompt-copy-block" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+            <div className="prompt-copy-header">
+              <span className="prompt-copy-title" style={{ color: '#f87171' }}>
+                <ShieldAlert size={12} style={{ display: 'inline', marginRight: 4 }} />
+                {failurePrompt.title}
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {onSimulatePrompt && (
+                  <button
+                    type="button"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    className="btn-danger"
+                    onClick={() => {
+                      onSimulatePrompt(3);
+                      onClose();
+                    }}
+                    title="Simulate move to locked stack and recovery"
+                  >
+                    <Play size={11} /> Simulate
+                  </button>
+                )}
+                <button
+                  type="button"
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  onClick={() => handleCopy(failurePrompt.text, 99)}
+                >
+                  {copiedIndex === 99 ? <Check size={11} color="#10b981" /> : <Copy size={11} />}
+                  {copiedIndex === 99 ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            <div className="prompt-text">&ldquo;{failurePrompt.text}&rdquo;</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 6 }}>
+              <strong>Expected Trajectory:</strong> {failurePrompt.expected}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-surface-elevated)', borderRadius: 'var(--radius-sm)' }}>
             <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-main)', marginBottom: 4 }}>
-              How to Test in Chrome or ChatGPT In-App Browser:
+              Testing Instructions for Evaluators:
             </div>
             <ol style={{ paddingLeft: 18, fontSize: 12, color: 'var(--text-muted)' }}>
-              <li>Open Chrome with the WebMCP ModelContext flag enabled, or open inside a compatible AI agent browser.</li>
-              <li>Observe the top-bar indicator: if WebMCP is enabled, it displays <strong>CONNECTED</strong>; otherwise <strong>MANUAL MODE</strong>.</li>
-              <li>Ask the agent to run any prompt above. Observe that state changes and crane relocations update live with <strong>AGENT</strong> provenance.</li>
+              <li>Open in Chrome with <code>chrome://flags/#enable-webmcp-testing</code> enabled, or inside the ChatGPT in-app browser.</li>
+              <li>When connected, the top-bar badge turns green: <strong>WebMCP: Connected</strong>.</li>
+              <li>Submit any prompt above. The agent invokes semantic WebMCP tools on <code>document.modelContext</code> and all mutations render in the live bay with <strong>AGENT</strong> provenance.</li>
             </ol>
           </div>
         </div>

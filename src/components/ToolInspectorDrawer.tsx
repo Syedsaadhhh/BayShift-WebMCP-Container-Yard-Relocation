@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Wrench, Play } from 'lucide-react';
+import { X, Wrench, Play, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { RegisteredToolInfo } from '../webmcp/bridge';
 
 interface ToolInspectorDrawerProps {
@@ -57,15 +57,36 @@ export const ToolInspectorDrawer: React.FC<ToolInspectorDrawerProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" style={{ width: 780 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" style={{ width: 820 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Wrench size={18} color="var(--actor-agent)" />
-            <h3>WebMCP Capability & Tool Inspector</h3>
+            <h3>Developer / Judge Inspector</h3>
           </div>
           <button type="button" onClick={onClose} style={{ padding: 4 }}>
             <X size={16} />
           </button>
+        </div>
+
+        {/* Unmissable distinction banner */}
+        <div
+          style={{
+            background: 'rgba(245, 158, 11, 0.1)',
+            borderBottom: '1px solid var(--actor-human-border)',
+            padding: '8px 20px',
+            fontSize: 12,
+            color: '#fbbf24',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}
+        >
+          <AlertTriangle size={14} color="#fbbf24" style={{ flexShrink: 0 }} />
+          <span>
+            <strong>Simulation only — not native WebMCP.</strong> This developer panel tests tool
+            contract execution and recovery logic directly. In a real AI browser, tools are invoked
+            autonomously via <code>document.modelContext</code>.
+          </span>
         </div>
 
         <div className="modal-body" style={{ display: 'flex', gap: 16 }}>

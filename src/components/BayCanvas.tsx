@@ -18,9 +18,8 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
   selectedContainerId,
   onSelectContainer
 }) => {
-  const [hoveredStackId, setHoveredStackId] = useState<string | null>(null);
-
   const currentTarget = state.queue.length > 0 ? state.queue[0] : null;
+  const targetLocation = currentTarget ? findContainerLocation(state.stacks, currentTarget) : null;
 
   // Selected container info
   const selectedLocation = selectedContainerId
@@ -50,7 +49,11 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
     }
 
     // Attempt move
-    onHumanMove(selectedLocation.stack.containers[selectedLocation.index].id, selectedLocation.stack.id, destStack.id);
+    onHumanMove(
+      selectedLocation.stack.containers[selectedLocation.index].id,
+      selectedLocation.stack.id,
+      destStack.id
+    );
     onSelectContainer(null);
   };
 
@@ -86,8 +89,6 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
               className={`stack-column ${stack.locked ? 'locked-stack' : ''} ${
                 isLegalTargetForSelection ? 'selected-dest' : ''
               }`}
-              onMouseEnter={() => setHoveredStackId(stack.id)}
-              onMouseLeave={() => setHoveredStackId(null)}
               onClick={() => {
                 if (isLegalTargetForSelection) {
                   handleStackClick(stack);
@@ -98,11 +99,11 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
               <div className="stack-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span className="stack-label">STACK {stack.id}</span>
-                  {stack.locked ? (
+                  {stack.locked && (
                     <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' }}>
-                      LOCKED
+                      ⛔ LOCKED
                     </span>
-                  ) : null}
+                  )}
                 </div>
                 <span className="stack-capacity-badge">
                   {stack.containers.length} / {stack.capacity}
@@ -117,6 +118,13 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
                   const isTarget = container && container.id === currentTarget;
                   const isBuried = isTarget && !isTop;
                   const isSelected = container && container.id === selectedContainerId;
+
+                  // Active blocker check: if in target's stack and above target
+                  const isBlockerAboveTarget =
+                    container &&
+                    targetLocation &&
+                    targetLocation.stack.id === stack.id &&
+                    slotIndex > targetLocation.index;
 
                   if (!container) {
                     const isNextDropSlot = slotIndex === stack.containers.length && isLegalTargetForSelection;
@@ -164,18 +172,22 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
                         </div>
 
                         <div className="container-badges">
-                          {isTop && <span className="tag-top">TOP</span>}
                           {isTarget && (
                             <span className="tag-target">
-                              {isTop ? 'TARGET READY' : 'TARGET (BURIED)'}
+                              {isTop ? '🎯 TARGET READY' : '🎯 TARGET (BURIED)'}
                             </span>
                           )}
-                          {!isTarget &&
-                            currentTarget &&
-                            selectedLocation?.stack.id === stack.id &&
-                            slotIndex > (selectedLocation?.index ?? 99) && (
-                              <span className="tag-blocker">BLOCKER</span>
-                            )}
+                          {!isTarget && isBlockerAboveTarget && (
+                            <span className="tag-blocker">
+                              ⚠️ BLOCKER #{slotIndex - (targetLocation?.index ?? 0)}
+                            </span>
+                          )}
+                          {isTop && !isTarget && !isBlockerAboveTarget && (
+                            <span className="tag-top">TOP MOVABLE</span>
+                          )}
+                          {isTop && isBlockerAboveTarget && (
+                            <span className="tag-top">&bull; TOP</span>
+                          )}
                         </div>
                       </div>
                     </div>

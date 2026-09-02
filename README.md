@@ -146,21 +146,27 @@ If WebMCP is not present in the current browser:
 
 Click the **Judge Walkthrough** button in the top bar for interactive guidance or copy-paste these prompts into your agent:
 
-### Prompt 1: Baseline Inspection & Blocker Analysis
+### Prompt A: Baseline Inspection & Blocker Analysis
 ```text
-Inspect the yard and tell me what blocks C01, where it is located, and which stack is best to clear the top blocker to.
+Inspect the yard and explain what blocks C01. Do not move anything yet.
 ```
-*Expected Behavior:* Agent calls `inspect_yard` and `analyze_target(containerId="C01")`. Reports C01 is in Stack B buried under C04 and C07 (top). Identifies Stack E as the best low-risk target (3 open slots).
+*Expected Behavior:* Agent calls `inspect_yard` and `analyze_target(containerId="C01")`. Reports C01 is at the bottom of Stack B (slot 0) buried under C04 and top blocker C07. Identifies Stack E (3 open slots) and Stack A as low-risk candidate destinations without mutating state.
 
-### Prompt 2: Autonomous Clearance & Retrieval
+### Prompt B: Sequential Clearance & Target Retrieval
 ```text
-Clear C01 without using Stack D, then retrieve it.
+Clear C01 without using Stack D. Make one legal relocation at a time, check the state after each move, and retrieve C01 when it becomes available.
 ```
-*Expected Behavior:* Agent moves C07 to Stack E, moves C04 to Stack A, then dispatches `retrieve_target(containerId="C01")` as soon as it dynamically unlocks.
+*Expected Behavior:* Agent sequentially moves C07 to Stack E, moves C04 to Stack A, then dispatches `retrieve_target(containerId="C01")` as soon as it dynamically unlocks upon exposure.
 
-### Prompt 3: Invariant Violation & Error Recovery
+### Prompt C: Co-Operational Adaptation (Late Truck Event)
 ```text
-Move the top container from Stack B to locked Stack D.
+The yard just changed because I updated an operator constraint. Re-inspect the current state before doing anything else, explain what changed, then continue legally.
+```
+*Expected Behavior:* Agent calls `inspect_yard`, detects that the human operator triggered the Late Truck event (container C08 expedited to position #2 in queue, Stack D locked for staging), and adapts its plan to avoid Stack D.
+
+### Optional Failure Prompt: Invariant Violation & Error Recovery
+```text
+Try moving the current top blocker to locked Stack D. If rejected, use the structured error to recover.
 ```
 *Expected Behavior:* Agent calls `move_container` to Stack D. Receives structured `ERR_DEST_LOCKED` rejection with open alternatives `["A", "C", "E"]`. Recovers without crashing by selecting an open stack.
 

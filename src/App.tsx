@@ -144,12 +144,12 @@ export const App: React.FC = () => {
   const handleSimulatePrompt = async (promptIndex: number) => {
     if (!bridgeRef.current) return;
     if (promptIndex === 0) {
-      // Inspect and analyze C01
+      // Prompt A: Inspect yard and analyze C01 blocker chain (read-only)
       await bridgeRef.current.executeSimulatedTool('inspect_yard', {});
       await bridgeRef.current.executeSimulatedTool('analyze_target', { containerId: 'C01' });
-      showBanner('Simulated Prompt 1: Inspected yard and analyzed C01 blocker chain.');
+      showBanner('Prompt A simulated: Inspected bay and analyzed C01 blocker chain.');
     } else if (promptIndex === 1) {
-      // Clear C01 without using Stack D: move C07 to E, move C04 to A, then retrieve C01
+      // Prompt B: Clear C01 without using Stack D, then retrieve
       await bridgeRef.current.executeSimulatedTool('move_container', {
         containerId: 'C07',
         fromStack: 'B',
@@ -165,18 +165,31 @@ export const App: React.FC = () => {
       await bridgeRef.current.executeSimulatedTool('retrieve_target', {
         containerId: 'C01'
       });
-      showBanner('Simulated Prompt 2: Autonomous clearance and retrieval of C01 complete!');
+      showBanner('Prompt B simulated: Autonomous clearance and retrieval of C01 complete!');
     } else if (promptIndex === 2) {
-      // Lock Stack D if not locked, then try moving C07 to D (expect rejection)
+      // Prompt C: Late truck update operator constraint & agent re-inspection
+      handleLateTruck();
+      await bridgeRef.current.executeSimulatedTool('inspect_yard', {});
+      await bridgeRef.current.executeSimulatedTool('analyze_target', { containerId: 'C08' });
+      showBanner('Prompt C simulated: Operator constraint updated (Late truck); Agent re-inspected yard.');
+    } else if (promptIndex === 3) {
+      // Optional Failure Prompt: Move to locked Stack D, expect rejection, then recover
       setStackLock(stateRef.current, 'human', { stackId: 'D', locked: true });
-      const res = await bridgeRef.current.executeSimulatedTool('move_container', {
+      const rejRes = await bridgeRef.current.executeSimulatedTool('move_container', {
         containerId: 'C07',
         fromStack: 'B',
         toStack: 'D',
-        rationale: 'Testing locked stack recovery'
+        rationale: 'Testing locked destination recovery'
       });
-      const parsed = JSON.parse(res);
-      showBanner(`Simulated Prompt 3: Invariant check rejected (${parsed.code}). Recovery suggested.`);
+      const parsed = JSON.parse(rejRes);
+      // Autonomous agent recovery to legal alternative Stack E
+      await bridgeRef.current.executeSimulatedTool('move_container', {
+        containerId: 'C07',
+        fromStack: 'B',
+        toStack: 'E',
+        rationale: 'Agent error recovery: Relocating to unlocked Stack E after Stack D rejection'
+      });
+      showBanner(`Failure prompt simulated: Stack D rejected (${parsed.code}); Agent recovered to Stack E.`);
     }
   };
 
@@ -244,9 +257,9 @@ export const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsToolInspectorOpen(true)}
-            title="Inspect registered WebMCP semantic tools and test execution"
+            title="Developer / Judge Inspector (Simulation Only — not native WebMCP)"
           >
-            <Wrench size={14} /> Tools ({registeredTools.length})
+            <Wrench size={14} /> Developer Inspector ({registeredTools.length})
           </button>
 
           <button type="button" onClick={() => setIsWhyModalOpen(true)} title="Why This Matters operational context">
