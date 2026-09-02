@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Stack, YardState } from '../domain/types';
-import { Lock, Unlock, ArrowDown, ShieldAlert, Cpu } from 'lucide-react';
+import { Lock, Unlock, ArrowDown, ShieldAlert, Target } from 'lucide-react';
 import { findContainerLocation } from '../domain/engine';
 import { ContainerUnit } from './ContainerUnit';
 
@@ -10,6 +10,7 @@ interface BayCanvasProps {
   onToggleLock: (stackId: string, locked: boolean) => void;
   selectedContainerId: string | null;
   onSelectContainer: (id: string | null) => void;
+  onSetTarget: (id: string) => void;
 }
 
 export const BayCanvas: React.FC<BayCanvasProps> = ({
@@ -17,7 +18,8 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
   onHumanMove,
   onToggleLock,
   selectedContainerId,
-  onSelectContainer
+  onSelectContainer,
+  onSetTarget
 }) => {
   const currentTarget = state.queue.length > 0 ? state.queue[0] : null;
   const targetLocation = currentTarget ? findContainerLocation(state.stacks, currentTarget) : null;
@@ -41,7 +43,7 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
   };
 
   const handleStackClick = (destStack: Stack) => {
-    if (!selectedLocation || !selectedLocation.isTop) return;
+    if (!selectedLocation) return;
     if (destStack.id === selectedLocation.stack.id) {
       onSelectContainer(null);
       return;
@@ -56,7 +58,8 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
   };
 
   // Find the active crane trolley position (defaults to selected container stack, or target stack)
-  const activeTrolleyStackId = selectedLocation?.stack.id || targetLocation?.stack.id || 'B';
+  const activeTrolleyStackId = selectedLocation?.stack.id || targetLocation?.stack.id || 'B02';
+  const trolleyIndex = Math.max(0, state.stacks.findIndex((stack) => stack.id === activeTrolleyStackId));
 
   return (
     <div className="bay-canvas-section">
@@ -66,7 +69,7 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
           <div className="crane-hazard-stripes" />
         </div>
         <div className="crane-trolley-track">
-          <div className={`crane-spreader trolley-at-${activeTrolleyStackId.toLowerCase()}`}>
+          <div className="crane-spreader" style={{ left: `${8 + trolleyIndex * 20}%` }}>
             <div className="spreader-cable" />
             <div className="spreader-head">
               <span className="spreader-label">RTG-CRANE #01</span>
@@ -77,21 +80,26 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
       </div>
 
       {/* Terminal Yard Floor & Bays Grid */}
+      {selectedLocation && (
+        <div className="selected-container-bar">
+          <span><strong>{selectedContainerId}</strong> · {selectedLocation.stack.containers[selectedLocation.index].weightClass} · {selectedLocation.stack.containers[selectedLocation.index].destination}</span>
+          <span>{selectedLocation.isTop ? 'Topmost · drag or click a destination' : `Blocked by ${selectedLocation.depth} container(s) · try a move to see the rule explanation`}</span>
+          <button type="button" className="btn-cyan" onClick={() => onSetTarget(selectedContainerId!)}><Target size={11} /> Set retrieval target</button>
+        </div>
+      )}
       <div className="terminal-yard-plane">
         <div className="stacks-grid">
           {state.stacks.map((stack) => {
             const isSourceOfSelection = selectedLocation?.stack.id === stack.id;
             const isLegalTargetForSelection =
               selectedLocation &&
-              selectedLocation.isTop &&
               !isSourceOfSelection &&
-              !stack.locked &&
-              stack.containers.length < stack.capacity;
+              selectedLocation.stack.id !== stack.id;
 
             return (
               <div
                 key={stack.id}
-                className={`bay-stack-column ${stack.locked ? 'bay-locked' : ''} ${
+                className={`bay-stack-column ${stack.locked || stack.outage ? 'bay-locked' : ''} ${
                   isLegalTargetForSelection ? 'bay-droppable' : ''
                 } ${isSourceOfSelection ? 'bay-source' : ''}`}
                 onClick={() => {
@@ -99,12 +107,30 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
                     handleStackClick(stack);
                   }
                 }}
+                role={isLegalTargetForSelection ? 'button' : undefined}
+                tabIndex={isLegalTargetForSelection ? 0 : undefined}
+                aria-label={isLegalTargetForSelection ? `Attempt move to ${stack.id}` : `Stack ${stack.id}`}
+                onKeyDown={(event) => {
+                  if (isLegalTargetForSelection && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    handleStackClick(stack);
+                  }
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const raw = event.dataTransfer.getData('application/x-bayshift-container');
+                  if (!raw) return;
+                  const dragged = JSON.parse(raw) as { containerId: string; fromStack: string };
+                  onHumanMove(dragged.containerId, dragged.fromStack, stack.id);
+                  onSelectContainer(null);
+                }}
                 style={{ cursor: isLegalTargetForSelection ? 'pointer' : 'default' }}
               >
                 {/* Bay Header */}
                 <div className="bay-header-strip">
                   <div className="bay-id-group">
-                    <span className="bay-lane-tag">BAY 0{stack.id}</span>
+                    <span className="bay-lane-tag">BLOCK {stack.id}</span>
                     <span className="bay-name">STACK {stack.id}</span>
                   </div>
 
@@ -121,12 +147,12 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
                 </div>
 
                 {/* Locked Hazard Overlay if stack is locked */}
-                {stack.locked && (
+                {(stack.locked || stack.outage) && (
                   <div className="bay-lock-banner">
                     <div className="hazard-tape" />
                     <div className="lock-content">
                       <ShieldAlert size={16} />
-                      <span>LOCKED: SAFETY CORRIDOR</span>
+                      <span>{stack.outage ? 'OUTAGE: CRANE LANE' : 'LOCKED: SAFETY CORRIDOR'}</span>
                     </div>
                   </div>
                 )}
@@ -188,6 +214,11 @@ export const BayCanvas: React.FC<BayCanvasProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             handleContainerClick(container, stack, Boolean(isTop));
+                          }}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData('application/x-bayshift-container', JSON.stringify({ containerId: container.id, fromStack: stack.id }));
+                            event.dataTransfer.effectAllowed = 'move';
+                            onSelectContainer(container.id);
                           }}
                         />
                       </div>

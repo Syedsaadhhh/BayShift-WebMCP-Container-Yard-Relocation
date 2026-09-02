@@ -6,15 +6,17 @@ interface InterventionPanelProps {
   state: YardState;
   onLateTruck: () => void;
   onToggleLock: (stackId: string, locked: boolean) => void;
+  onToggleOutage: (stackId: string, active: boolean) => void;
 }
 
 export const InterventionPanel: React.FC<InterventionPanelProps> = ({
   state,
   onLateTruck,
-  onToggleLock
+  onToggleLock,
+  onToggleOutage
 }) => {
-  const isC08Expedited = state.queue.indexOf('C08') === 1;
-  const isStackDLocked = state.stacks.find((s) => s.id === 'D')?.locked ?? false;
+  const isLateTruckApplied = state.queue.indexOf('CX-330') === 1;
+  const outageStack = state.stacks.find((stack) => stack.id === 'B05');
 
   return (
     <div className="rail-section intervention-section">
@@ -29,25 +31,27 @@ export const InterventionPanel: React.FC<InterventionPanelProps> = ({
         <div className="intervention-header">
           <span className="intervention-tag">DYNAMIC EVENT</span>
           <span className="intervention-badge-status">
-            {isC08Expedited ? 'DISPATCH INJECTED' : 'READY TO TRIGGER'}
+            {isLateTruckApplied ? 'DISPATCH INJECTED' : 'READY TO TRIGGER'}
           </span>
         </div>
 
         <button
           type="button"
-          className={`late-truck-action-btn ${isC08Expedited ? 'btn-applied' : ''}`}
+          className={`late-truck-action-btn ${isLateTruckApplied ? 'btn-applied' : ''}`}
           onClick={onLateTruck}
           title="Simulate unscheduled late truck expedited arrival at terminal gate"
         >
           <Truck size={15} />
-          <span>{isC08Expedited ? 'Re-apply Late Truck Dispatch' : 'Inject Late Truck Update'}</span>
+          <span>{isLateTruckApplied ? 'Late Truck Priority Applied' : 'Inject Late Truck Update'}</span>
         </button>
 
         <p className="intervention-explainer">
-          Simulates an expedited arrival at Gate 3 for container <strong>C08</strong>. Promotes C08
-          to queue position #2 and reserves/locks <strong>Stack D</strong> for crane staging,
-          forcing the AI agent to re-inspect and alter its clearance plan.
+          Advances the truck ETA for <strong>CX-330</strong> and promotes it to queue position #2.
+          The actual shared priority order changes immediately for both operator and agent.
         </p>
+        <button type="button" className="late-truck-action-btn" onClick={() => onToggleOutage('B05', !outageStack?.outage)}>
+          <AlertTriangle size={14} /> {outageStack?.outage ? 'Clear B05 crane outage' : 'Trigger B05 crane outage'}
+        </button>
       </div>
 
       {/* Quick Corridor Locks Overview */}

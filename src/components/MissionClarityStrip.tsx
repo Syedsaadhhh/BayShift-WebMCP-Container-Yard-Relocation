@@ -1,14 +1,14 @@
 import React from 'react';
 import { Target, ArrowUpDown, UserCheck, Bot, History } from 'lucide-react';
 
-export const MissionClarityStrip: React.FC = () => {
+export const MissionClarityStrip: React.FC<{ target?: string | null }> = ({ target = 'CX-204' }) => {
   return (
     <div className="mission-clarity-strip">
       <div className="mission-pill">
         <Target size={14} className="icon-target" />
         <div>
           <span className="pill-label">CURRENT GOAL</span>
-          <span className="pill-value">Retrieve target pickup <strong>C01</strong></span>
+          <span className="pill-value">Retrieve target pickup <strong>{target ?? '—'}</strong></span>
         </div>
       </div>
 
@@ -40,7 +40,7 @@ export const MissionClarityStrip: React.FC = () => {
         <History size={14} className="icon-rewind" />
         <div>
           <span className="pill-label">STATE & AUDIT</span>
-          <span className="pill-value">Shared live state &bull; Provenance ledger &bull; Reversible</span>
+          <span className="pill-value">Versioned shared state &bull; Provenance &bull; Reversible</span>
         </div>
       </div>
     </div>

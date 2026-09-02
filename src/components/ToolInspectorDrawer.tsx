@@ -29,16 +29,20 @@ export const ToolInspectorDrawer: React.FC<ToolInspectorDrawerProps> = ({
     setOutputJson(null);
     if (name === 'inspect_yard') {
       setInputJson('{}');
-    } else if (name === 'analyze_target') {
-      setInputJson('{\n  "containerId": "C01"\n}');
-    } else if (name === 'simulate_relocation') {
-      setInputJson('{\n  "containerId": "C07",\n  "toStack": "E"\n}');
-    } else if (name === 'move_container') {
-      setInputJson('{\n  "containerId": "C07",\n  "fromStack": "B",\n  "toStack": "E",\n  "rationale": "Clearing top blocker above C01"\n}');
+    } else if (name === 'get_container' || name === 'analyze_blockers') {
+      setInputJson('{\n  "containerId": "CX-204"\n}');
+    } else if (name === 'validate_move') {
+      setInputJson('{\n  "containerId": "CX-203",\n  "fromStack": "B02",\n  "toStack": "B01"\n}');
+    } else if (name === 'simulate_relocations') {
+      setInputJson('{\n  "containerId": "CX-204",\n  "maxPlans": 3\n}');
+    } else if (name === 'execute_move') {
+      setInputJson('{\n  "containerId": "CX-203",\n  "fromStack": "B02",\n  "toStack": "B01",\n  "expectedStateVersion": 37,\n  "rationale": "Clear the first blocker above CX-204"\n}');
     } else if (name === 'retrieve_target') {
-      setInputJson('{\n  "containerId": "C01"\n}');
-    } else if (name === 'rewind_last_action') {
-      setInputJson('{}');
+      setInputJson('{\n  "containerId": "CX-204",\n  "expectedStateVersion": 39\n}');
+    } else if (name === 'inspect_changes') {
+      setInputJson('{\n  "sinceStateVersion": 37\n}');
+    } else if (name === 'rewind_yard') {
+      setInputJson('{\n  "expectedStateVersion": 38\n}');
     }
   };
 

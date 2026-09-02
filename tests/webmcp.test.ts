@@ -1,122 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../src/domain/scenario';
-import { WebMCPBridge } from '../src/webmcp/bridge';
 import { YardState } from '../src/domain/types';
+import { AgentTraceEvent, WebMCPBridge } from '../src/webmcp/bridge';
 
-describe('WebMCP Bridge & Tool Lifecycles', () => {
-  it('registers the 4 static tools initially and omits retrieve_target when target is buried', async () => {
-    let currentState: YardState = createInitialState();
-    const bridge = new WebMCPBridge(
-      () => currentState,
-      (updater) => {
-        currentState = updater(currentState);
-      }
-    );
+function harness() {
+  let state: YardState = createInitialState();
+  const trace: AgentTraceEvent[] = [];
+  const bridge = new WebMCPBridge(() => state, (updater) => { state = updater(state); }, undefined, (event) => trace.push(event));
+  return { bridge, trace, get state() { return state; } };
+}
 
-    await bridge.registerAll();
-    const tools = bridge.getRegisteredToolsList();
-    const toolNames = tools.map((t) => t.name);
-
-    expect(toolNames).toContain('inspect_yard');
-    expect(toolNames).toContain('analyze_target');
-    expect(toolNames).toContain('simulate_relocation');
-    expect(toolNames).toContain('move_container');
-
-    // Initially C01 is buried under 2 blockers, so retrieve_target should NOT be registered!
-    expect(toolNames).not.toContain('retrieve_target');
-    // Initially no reversible action, so rewind_last_action should NOT be registered
-    expect(toolNames).not.toContain('rewind_last_action');
+describe('WebMCP semantic surface', () => {
+  it('registers the intentional nine-tool surface', async () => {
+    const run = harness();
+    await run.bridge.registerAll();
+    expect(run.bridge.getRegisteredToolsList().map((tool) => tool.name)).toEqual([
+      'inspect_yard', 'get_container', 'analyze_blockers', 'validate_move', 'simulate_relocations',
+      'execute_move', 'retrieve_target', 'inspect_changes', 'rewind_yard'
+    ]);
   });
 
-  it('dynamically registers rewind_last_action after a reversible move', async () => {
-    let currentState: YardState = createInitialState();
-    const bridge = new WebMCPBridge(
-      () => currentState,
-      (updater) => {
-        currentState = updater(currentState);
-      }
-    );
-
-    await bridge.registerAll();
-    expect(bridge.getRegisteredToolsList().map((t) => t.name)).not.toContain('rewind_last_action');
-
-    // Execute move_container via bridge
-    const moveRes = await bridge.executeSimulatedTool('move_container', {
-      containerId: 'C07',
-      fromStack: 'B',
-      toStack: 'E'
-    });
-
-    const parsed = JSON.parse(moveRes);
-    expect(parsed.ok).toBe(true);
-
-    // Sync bridge with new state
-    bridge.syncWithState(currentState);
-
-    // Now rewind_last_action MUST be registered
-    const toolsAfterMove = bridge.getRegisteredToolsList().map((t) => t.name);
-    expect(toolsAfterMove).toContain('rewind_last_action');
+  it('returns stateVersion and hero blockers from inspect_yard', async () => {
+    const run = harness();
+    await run.bridge.registerAll();
+    const response = JSON.parse(await run.bridge.executeSimulatedTool('inspect_yard', {}));
+    expect(response.stateVersion).toBe(37);
+    expect(response.data.target).toBe('CX-204');
+    expect(response.data.blockers).toEqual(['CX-188', 'CX-203']);
   });
 
-  it('dynamically registers retrieve_target only when head of queue is unblocked', async () => {
-    let currentState: YardState = createInitialState();
-    const bridge = new WebMCPBridge(
-      () => currentState,
-      (updater) => {
-        currentState = updater(currentState);
-      }
-    );
-
-    await bridge.registerAll();
-    expect(bridge.getRegisteredToolsList().map((t) => t.name)).not.toContain('retrieve_target');
-
-    // Move blocker C07 from B to E
-    await bridge.executeSimulatedTool('move_container', {
-      containerId: 'C07',
-      fromStack: 'B',
-      toStack: 'E'
-    });
-    bridge.syncWithState(currentState);
-    expect(bridge.getRegisteredToolsList().map((t) => t.name)).not.toContain('retrieve_target');
-
-    // Move blocker C04 from B to A
-    await bridge.executeSimulatedTool('move_container', {
-      containerId: 'C04',
-      fromStack: 'B',
-      toStack: 'A'
-    });
-    bridge.syncWithState(currentState);
-
-    // C01 is now exposed and topmost!
-    expect(bridge.getRegisteredToolsList().map((t) => t.name)).toContain('retrieve_target');
-
-    // Execute retrieve_target
-    const retRes = await bridge.executeSimulatedTool('retrieve_target', {
-      containerId: 'C01'
-    });
-    const parsedRet = JSON.parse(retRes);
-    expect(parsedRet.ok).toBe(true);
-    expect(currentState.metrics.retrieves).toBe(1);
-
-    // Target advances to C02, which is buried under C06 in Stack C!
-    bridge.syncWithState(currentState);
-    // So retrieve_target should be dynamically removed again!
-    expect(bridge.getRegisteredToolsList().map((t) => t.name)).not.toContain('retrieve_target');
+  it('validates expectedStateVersion for destructive tools', async () => {
+    const run = harness();
+    await run.bridge.registerAll();
+    const response = JSON.parse(await run.bridge.executeSimulatedTool('execute_move', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01' }));
+    expect(response.code).toBe('INVALID_INPUT');
+    expect(run.state.stateVersion).toBe(37);
   });
 
-  it('inspect_yard returns complete bay operational state and guidance', async () => {
-    const currentState: YardState = createInitialState();
-    const bridge = new WebMCPBridge(
-      () => currentState,
-      () => {}
-    );
-    await bridge.registerAll();
+  it('surfaces STALE_STATE in the auditable trace', async () => {
+    const run = harness();
+    await run.bridge.registerAll();
+    await run.bridge.executeSimulatedTool('execute_move', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 36 });
+    expect(run.trace.at(-1)?.status).toBe('rejected');
+    expect(run.trace.at(-1)?.summary).toContain('prepared for yard v36');
+    expect(run.state.stateVersion).toBe(37);
+  });
 
-    const inspectRes = await bridge.executeSimulatedTool('inspect_yard', {});
-    const parsed = JSON.parse(inspectRes);
-    expect(parsed.ok).toBe(true);
-    expect(parsed.data.currentTarget).toBe('C01');
-    expect(parsed.data.stacks).toHaveLength(5);
-    expect(parsed.data.guidance).toContain('BURIED');
+  it('executes an agent move against the authoritative state', async () => {
+    const run = harness();
+    await run.bridge.registerAll();
+    const response = JSON.parse(await run.bridge.executeSimulatedTool('execute_move', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37, rationale: 'Hero clearance' }));
+    expect(response.ok).toBe(true);
+    expect(run.state.stateVersion).toBe(38);
+    expect(run.state.history.at(-1)?.actor).toBe('agent');
+  });
+
+  it('returns the real result even when a React-style updater is deferred', async () => {
+    let state = createInitialState();
+    let pending: ((previous: YardState) => YardState) | undefined;
+    const bridge = new WebMCPBridge(() => state, (updater) => { pending = updater; });
+    await bridge.registerAll();
+    const response = JSON.parse(await bridge.executeSimulatedTool('execute_move', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }));
+    expect(response.ok).toBe(true);
+    expect(response.stateVersion).toBe(38);
+    expect(state.stateVersion).toBe(37);
+    state = pending!(state);
+    expect(state.stateVersion).toBe(38);
   });
 });

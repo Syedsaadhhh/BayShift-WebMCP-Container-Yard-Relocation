@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActionEvent } from '../domain/types';
-import { RotateCcw, Activity, ShieldCheck, CornerDownLeft } from 'lucide-react';
+import { RotateCcw, Activity, CornerDownLeft, Search } from 'lucide-react';
 
 interface LedgerPanelProps {
   history: ActionEvent[];
@@ -9,6 +9,12 @@ interface LedgerPanelProps {
 }
 
 export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, canRewind }) => {
+  const [inspectedId, setInspectedId] = useState<string | null>(null);
+  const inspected = history.find((event) => event.id === inspectedId) ?? null;
+  const stackSummary = (snapshot: ActionEvent['snapshotBefore']) => snapshot?.stacks
+    .filter((stack) => inspected?.changedEntities.includes(stack.id))
+    .map((stack) => `${stack.id}: [${stack.containers.map((container) => container.id).join(', ')}]`)
+    .join('\n') || 'No stack snapshot (non-reversible system event).';
   return (
     <div className="ledger-section">
       <div className="ledger-header">
@@ -31,6 +37,14 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
         </div>
       </div>
 
+      {inspected && (
+        <div className="change-inspector">
+          <div><span>BEFORE · v{inspected.stateVersionBefore}</span><pre>{stackSummary(inspected.snapshotBefore)}</pre></div>
+          <div><span>AFTER · v{inspected.stateVersionAfter}</span><pre>{stackSummary(inspected.snapshotAfter)}</pre></div>
+          <div><span>DIFF</span><pre>{JSON.stringify({ changedEntities: inspected.changedEntities, result: inspected.result }, null, 2)}</pre></div>
+        </div>
+      )}
+
       <div className="ledger-table-wrapper">
         <table className="ledger-table">
           <thead>
@@ -43,7 +57,7 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
             </tr>
           </thead>
           <tbody>
-            {history.map((evt, idx) => {
+            {[...history].reverse().map((evt, idx) => {
               let actorBadgeClass = 'badge-system';
               if (evt.actor === 'human') actorBadgeClass = 'badge-human';
               else if (evt.actor === 'agent') actorBadgeClass = 'badge-agent';
@@ -55,7 +69,7 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
                     Relocated container <strong className="text-white">{String(evt.payload.containerId)}</strong> from{' '}
                     <strong>Stack {String(evt.payload.fromStack)}</strong> &rarr;{' '}
                     <strong>Stack {String(evt.payload.toStack)}</strong>{' '}
-                    <span className="detail-meta">({String(evt.payload.travelSteps)} crane steps)</span>
+                    <span className="detail-meta">(v{evt.stateVersionBefore} → v{evt.stateVersionAfter})</span>
                     {Boolean(evt.payload.rationale) && (
                       <span className="detail-rationale">&mdash; &ldquo;{String(evt.payload.rationale)}&rdquo;</span>
                     )}
@@ -64,8 +78,7 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
               } else if (evt.type === 'retrieve') {
                 detailContent = (
                   <span>
-                    Retrieved priority container <strong className="text-emerald">{String(evt.payload.containerId)}</strong> from{' '}
-                    <strong>Stack {String(evt.payload.retrievedFrom)}</strong> to terminal dispatch gate.
+                    Retrieved priority container <strong className="text-emerald">{String(evt.payload.containerId)}</strong> to terminal dispatch gate.
                   </span>
                 );
               } else if (evt.type === 'lock' || evt.type === 'unlock') {
@@ -75,16 +88,20 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
                     <span className="text-muted">{String(evt.payload.reason)}</span>
                   </span>
                 );
-              } else if (evt.type === 'priority_change') {
+              } else if (evt.type === 'late_truck') {
                 detailContent = (
                   <span>
-                    <strong className="text-amber">{String(evt.payload.event)}:</strong> {String(evt.payload.detail)}
+                    <strong className="text-amber">Late truck:</strong> {String(evt.payload.containerId)} promoted in the dispatch queue.
                   </span>
                 );
+              } else if (evt.type === 'outage') {
+                detailContent = <span>Lane/crane outage changed for <strong>{String(evt.payload.stackId)}</strong>.</span>;
+              } else if (evt.type === 'target_change') {
+                detailContent = <span>Retrieval target changed to <strong>{String(evt.payload.containerId)}</strong>.</span>;
               } else if (evt.type === 'rewind') {
                 detailContent = (
                   <span>
-                    Restored pre-action yard snapshot for event <code className="code-tag">{String(evt.payload.rewoundEventId)}</code>.
+                    Restored pre-action yard snapshot for event <code className="code-tag">{String(evt.payload.eventId)}</code>.
                   </span>
                 );
               } else if (evt.type === 'reset') {
@@ -104,6 +121,7 @@ export const LedgerPanel: React.FC<LedgerPanelProps> = ({ history, onRewind, can
                   <td className="action-type-cell">{evt.type}</td>
                   <td className="detail-cell">{detailContent}</td>
                   <td style={{ textAlign: 'right' }}>
+                    <button type="button" className="inspect-change-btn" onClick={() => setInspectedId(inspectedId === evt.id ? null : evt.id)} title="Inspect before, after, and diff"><Search size={10} /> Inspect</button>
                     {evt.reversible ? (
                       <button
                         type="button"

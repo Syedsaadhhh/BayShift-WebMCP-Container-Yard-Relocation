@@ -1,7 +1,7 @@
 import React from 'react';
 import { YardState } from '../domain/types';
-import { findContainerLocation } from '../domain/engine';
-import { AlertCircle, CheckCircle2, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
+import { findContainerLocation, simulateRelocations } from '../domain/engine';
+import { CheckCircle2, Sparkles, ArrowRight } from 'lucide-react';
 
 interface WhatsHappeningCardProps {
   state: YardState;
@@ -12,7 +12,7 @@ export const WhatsHappeningCard: React.FC<WhatsHappeningCardProps> = ({
   state,
   onRetrieveCurrentTarget
 }) => {
-  const currentTargetId = state.queue.length > 0 ? state.queue[0] : null;
+  const currentTargetId = state.targetContainerId;
   const targetLocation = currentTargetId ? findContainerLocation(state.stacks, currentTargetId) : null;
 
   if (!currentTargetId) {
@@ -33,6 +33,7 @@ export const WhatsHappeningCard: React.FC<WhatsHappeningCardProps> = ({
     : [];
 
   const topBlocker = blockers.length > 0 ? blockers[blockers.length - 1] : null;
+  const plannedDestination = currentTargetId ? simulateRelocations(state, currentTargetId, 1).data?.candidatePlans[0]?.moves[0]?.toStack : undefined;
 
   return (
     <div className={`whats-happening-card ${isTargetTopmost ? 'target-ready' : 'target-buried'}`}>
@@ -82,7 +83,7 @@ export const WhatsHappeningCard: React.FC<WhatsHappeningCardProps> = ({
             <div className="wh-stat-row">
               <span className="wh-label">Suggested Move:</span>
               <span className="wh-value text-cyan">
-                Relocate top blocker <strong>{topBlocker?.id}</strong> to Stack E (3 open slots)
+                Relocate top blocker <strong>{topBlocker?.id}</strong> to <strong>{plannedDestination ?? 'an available stack'}</strong>
               </span>
             </div>
           </>

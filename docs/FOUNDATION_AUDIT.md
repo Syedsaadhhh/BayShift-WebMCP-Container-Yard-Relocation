@@ -1,52 +1,18 @@
-# Foundation Audit
+# Foundation audit
 
-## Automated
-- **tests**: PASSED (18 of 18 Vitest tests passed across `tests/domain.test.ts` and `tests/webmcp.test.ts`, covering all domain invariants, boundary conditions, dynamic tool lifecycles, and rollback).
-- **build**: PASSED (Clean production build via `tsc && vite build`; 0 TypeScript errors, 200.66 kB bundle generated in `dist/`).
+## Current architecture
 
-## Manual UI
-- **legal move**: CONFIRMED (Moving top container C07 from Stack B to Stack E succeeds, increments relocations count to 1, increases crane travel steps by 3, updates local blocking score, and appends a reversible event to the operations ledger).
-- **illegal move**: CONFIRMED (Attempting to move buried container C01 while beneath C04 and C07 is strictly rejected with code `ERR_NOT_TOP_CONTAINER` and structured `legalNext` alternative moves; state remains completely unmutated).
-- **lock**: CONFIRMED (Stack D and Stack E can be locked/unlocked via the operator toggle buttons; moving into a locked stack is rejected with code `ERR_DEST_LOCKED` and provides unlocked alternative stacks).
-- **late-truck event**: CONFIRMED (Triggering "Late Truck Update" expedites container C08 to position #2 in the retrieval queue, updates its priority metadata, locks Stack D for crane staging, and records an unalterable operational event in the ledger).
-- **rewind**: CONFIRMED (Executing rewind reverts the most recent reversible action, restoring the bay stacks, retrieval queue, and metrics to the exact `snapshotBefore`; appends a system/human rewind record).
-- **reset**: CONFIRMED (Reset restores the deterministic initial scenario: 5 stacks, 12 containers, C01 buried under exactly 2 blockers in Stack B, relocations reset to 0, retrieves reset to 0).
-- **provenance**: CONFIRMED (All events in the operations ledger are visibly tagged with actor provenance: `HUMAN` in amber, `AGENT` in cyan, and `SYSTEM` in neutral gray).
+BayShift is a React/TypeScript/Vite single-page app. The domain engine is pure and client-side. React owns one `YardState`; both human handlers and WebMCP callbacks call the same exported engine mutations.
 
-## WebMCP Source Audit
-- **document.modelContext**: CONFIRMED (The bridge registers directly via `document.modelContext.registerTool({...}, { signal })`. No legacy `provideContext` and no reliance on `navigator.modelContext`).
-- **six tools**: CONFIRMED (Exactly six semantic tools registered: `inspect_yard`, `analyze_target`, `simulate_relocation`, `move_container`, `retrieve_target`, `rewind_last_action`).
-- **dynamic lifecycle**: CONFIRMED (Uses `AbortController` signals to manage dynamic tool availability. `retrieve_target` is registered only when the current queue target is exposed at the top of its stack. `rewind_last_action` is registered only when a reversible history entry exists).
-- **shared command path**: CONFIRMED (Both human UI interactions and agent WebMCP tool `execute` callbacks route through the identical pure domain functions in `src/domain/engine.ts`).
-- **structured errors**: CONFIRMED (All rejections return `{ ok: false, code, message, legalNext? }` with machine-readable error codes such as `ERR_NOT_TOP_CONTAINER`, `ERR_DEST_LOCKED`, `ERR_DEST_FULL`, and `ERR_TARGET_BURIED`).
+## Invariants
 
-## Native WebMCP
-- **client/browser tested**: Google Chrome (Windows headless test environment) and Node.js test harness.
-- **native document.modelContext available**: NO (The default browser environment without the experimental WebMCP/ModelContext flag does not expose `document.modelContext` on the global `document` object).
-- **native tool discovery tested**: NO (Requires Chrome launched with `--enable-features=ModelContextTesting` or the ChatGPT in-app browser).
-- **native agent mutation tested**: NO (Requires a WebMCP-native browser runtime).
-- **evidence**: Runtime feature detection evaluates `typeof document !== 'undefined' && 'modelContext' in document && !!document.modelContext`. When false, the application gracefully operates in Manual Mode (`Manual Mode (WebMCP Unavailable)`), allowing human control and simulated agent execution.
+- `stateVersion` is monotonic and every successful mutation advances it exactly once.
+- `execute_move`, `retrieve_target`, and `rewind_yard` require `expectedStateVersion`.
+- Stale commands return `STALE_STATE`, expected/current versions, a reason, and re-inspection guidance without mutation.
+- Simulation deep-clones working snapshots and never writes state or history.
+- Rewind restores actual stacks, queue, target, constraints, disruptions, and metrics while assigning a new version.
+- History is chronological and actor-attributed with before/after evidence and changed entities.
 
-## Simulator
-- **available**: YES (Embedded WebMCP Capability & Tool Inspector accessible via the "Tools" button in the top bar and automated test harness in `tests/webmcp.test.ts`).
-- **scenarios tested**:
-  - `inspect_yard`: Returns full 5-stack heights, locks, current target, and operational guidance.
-  - `analyze_target`: Identifies blocker chain for buried C01.
-  - `simulate_relocation`: Evaluates legality, crane travel distance, and delta blocking score without mutating state.
-  - `move_container`: Executes legal relocations with `AGENT` provenance.
-  - `retrieve_target`: Executes pickup when unblocked.
-  - `rewind_last_action`: Restores prior snapshot.
-- **note: simulator is not native WebMCP proof**: CONFIRMED (The simulator proves domain command compliance and JSON schema contract fidelity, but native agent integration must be verified in an actual WebMCP-enabled browser runtime).
+## Verified scenario
 
-## P0 blockers
-*None.* The repository, domain engine, UI, WebMCP bridge, and static deployment configuration fully satisfy the Foundation + WebMCP specification.
-
-## P1 improvements
-1. **Drag-and-Drop Enhancement**: Supplement click-to-move with HTML5 drag-and-drop handles for enhanced desktop operator ergonomics.
-2. **Dynamic Live WebMCP ToolChange Event Dispatch**: When native `document.modelContext` is available, dispatch the experimental `toolchange` event on dynamic registration/unregistration.
-
----
-
-## Recommendation
-
-A_ALREADY_SATISFIED
+Native WebMCP was available in the Codex in-app browser. The following live sequence passed: inspect v37, simulate two moves, human lock B01 to v38, stale v37 execution rejection, inspect changes, replan around B01, execute CX-203 to B04, execute CX-188 to B05, retrieve CX-204, rewind retrieval, and apply late-truck priority mutation.

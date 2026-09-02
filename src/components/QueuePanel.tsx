@@ -9,7 +9,7 @@ interface QueuePanelProps {
 }
 
 export const QueuePanel: React.FC<QueuePanelProps> = ({ state, onRetrieveCurrentTarget }) => {
-  const currentTargetId = state.queue.length > 0 ? state.queue[0] : null;
+  const currentTargetId = state.targetContainerId;
   const targetLocation = currentTargetId
     ? findContainerLocation(state.stacks, currentTargetId)
     : null;

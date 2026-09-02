@@ -23,31 +23,31 @@ export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
     {
       id: 'A',
       title: 'Prompt A: Inspect & Explain Blockers (Read-only Analysis)',
-      text: 'Inspect the yard and explain what blocks C01. Do not move anything yet.',
+      text: 'Inspect the yard and explain what blocks CX-204. Do not move anything yet.',
       expected:
-        'Agent invokes inspect_yard() and analyze_target(containerId="C01"). Identifies C01 is in Stack B, slot 0 (buried under C04 and top blocker C07). Notes open candidate stacks without performing mutations.'
+        'Agent invokes inspect_yard() and analyze_blockers(containerId="CX-204"). It identifies CX-188 and top blocker CX-203 in B02 and reads stateVersion 37 without mutating the yard.'
     },
     {
       id: 'B',
       title: 'Prompt B: Constraint-Aware Clearance & Retrieval',
-      text: 'Clear C01 without using Stack D. Make one legal relocation at a time, check the state after each move, and retrieve C01 when it becomes available.',
+      text: 'Simulate the minimum relocation plan for CX-204. I will lock a destination before you execute; recover from STALE_STATE, re-inspect, then clear and retrieve the target.',
       expected:
-        'Agent moves C07 from B to E (or A), checks state, moves C04 from B to A (or E). C01 becomes topmost; retrieve_target dynamically registers. Agent invokes retrieve_target(C01).'
+        'Agent calls simulate_relocations, then execute_move with expectedStateVersion. The operator lock increments the yard version, the old command returns STALE_STATE, and the agent re-inspects and replans.'
     },
     {
       id: 'C',
       title: 'Prompt C: Co-Operational Adaptation (Late Truck Event)',
       text: 'The yard just changed because I updated an operator constraint. Re-inspect the current state before doing anything else, explain what changed, then continue legally.',
       expected:
-        'Agent invokes inspect_yard(). Discovers Stack D is locked by operator and container C08 has been expedited to queue position #2. Synthesizes revised plan avoiding Stack D.'
+        'Agent invokes inspect_yard(). It discovers the operator mutation and that CX-330 was expedited to queue position #2, then plans against the new stateVersion.'
     }
   ];
 
   const failurePrompt = {
     title: 'Optional Failure Prompt: Invariant Violation & Error Recovery',
-    text: 'Try moving the current top blocker to locked Stack D. If rejected, use the structured error to recover.',
+    text: 'Execute the previously simulated move using its old expectedStateVersion after I lock the destination. If rejected, inspect changes and recover.',
     expected:
-      'Agent invokes move_container to Stack D. Engine rejects with ERR_DEST_LOCKED and returns legalNext: ["A", "C", "E"]. Agent parses structured error and successfully relocates to an unlocked stack.'
+      'execute_move rejects with STALE_STATE, returning expected and current versions plus re-inspection guidance. inspect_changes and inspect_yard reveal the human lock before a fresh plan is generated.'
   };
 
   const handleCopy = (text: string, idx: number) => {

@@ -9,6 +9,7 @@ interface ContainerUnitProps {
   isSelected: boolean;
   blockerIndex: number | null; // null if not blocker, 1, 2 etc if blocker
   onClick: (e: React.MouseEvent) => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
 export const ContainerUnit: React.FC<ContainerUnitProps> = ({
@@ -18,7 +19,8 @@ export const ContainerUnit: React.FC<ContainerUnitProps> = ({
   isBuried,
   isSelected,
   blockerIndex,
-  onClick
+  onClick,
+  onDragStart
 }) => {
   // Determine color scheme based on container type/priority
   let colorTheme = 'theme-standard';
@@ -40,6 +42,17 @@ export const ContainerUnit: React.FC<ContainerUnitProps> = ({
         isSelected ? 'is-selected' : ''
       } ${isTarget ? 'is-target' : ''}`}
       onClick={onClick}
+      draggable={isTop}
+      onDragStart={onDragStart}
+      role="button"
+      tabIndex={0}
+      aria-label={`${container.id}${isTop ? ', topmost and movable' : ', blocked in stack'}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick(event as unknown as React.MouseEvent);
+        }
+      }}
       title={`${container.id} - ${container.label || 'Cargo Container'} (Priority: P${container.priority})`}
     >
       {/* 2.5D Roof / Top Lip */}
