@@ -22,7 +22,6 @@ export const ContainerUnit: React.FC<ContainerUnitProps> = ({
   onClick,
   onDragStart
 }) => {
-  // Determine color scheme based on container type/priority
   let colorTheme = 'theme-standard';
   if (isTarget) {
     colorTheme = isTop ? 'theme-target-ready' : 'theme-target-buried';
@@ -38,9 +37,7 @@ export const ContainerUnit: React.FC<ContainerUnitProps> = ({
 
   return (
     <div
-      className={`container-unit ${colorTheme} ${isTop ? 'is-top' : ''} ${
-        isSelected ? 'is-selected' : ''
-      } ${isTarget ? 'is-target' : ''}`}
+      className={`container-unit ${colorTheme} cargo-${Number(container.id.slice(-1)) % 4} ${isTop ? 'is-top' : ''} ${isSelected ? 'is-selected' : ''} ${isTarget ? 'is-target' : ''} ${isBuried ? 'is-buried' : ''}`}
       onClick={onClick}
       draggable={isTop}
       onDragStart={onDragStart}
@@ -53,62 +50,49 @@ export const ContainerUnit: React.FC<ContainerUnitProps> = ({
           onClick(event as unknown as React.MouseEvent);
         }
       }}
-      title={`${container.id} - ${container.label || 'Cargo Container'} (Priority: P${container.priority})`}
+      title={`${container.id} · ${container.label || 'Cargo container'} · Priority ${container.priority}`}
     >
-      {/* 2.5D Roof / Top Lip */}
       <div className="container-roof">
         <div className="corner-casting top-left" />
-        <div className="roof-ridge" />
+        <div className="roof-ridges"><i /><i /><i /><i /><i /><i /></div>
         <div className="corner-casting top-right" />
       </div>
 
-      {/* Main Corrugated Front Body */}
       <div className="container-body">
-        {/* Corrugated Vertical Ribs Overlay */}
         <div className="corrugation-overlay" />
-
-        {/* Left Specification Column */}
         <div className="container-left-col">
+          <span className="cargo-brand">BAYSHIFT CARGO</span>
           <div className="container-id-row">
-            <span className="container-serial-prefix">ISO-</span>
             <span className="container-id-text">{container.id}</span>
+            <span className={`priority-tag p-${container.priority <= 2 ? 'urgent' : container.priority <= 5 ? 'high' : 'standard'}`}>P{container.priority}</span>
           </div>
-          <span className="container-spec-label">{container.label || 'Freight 40HC'}</span>
+          <span className="container-spec-label">{container.destination} · {container.type}</span>
         </div>
 
-        {/* Center Operational Status Badges */}
         <div className="container-center-col">
           {isTarget && (
             <span className={`status-pill ${isTop ? 'pill-target-ready' : 'pill-target-buried'}`}>
-              {isTop ? '🎯 TARGET READY' : '🎯 TARGET (BURIED)'}
+              {isTop ? 'TARGET EXPOSED' : 'TARGET BURIED'}
             </span>
           )}
           {!isTarget && blockerIndex !== null && (
-            <span className="status-pill pill-blocker">
-              ⚠️ BLOCKER #{blockerIndex}
-            </span>
+            <span className="status-pill pill-blocker">BLOCKER {blockerIndex}</span>
           )}
           {isTop && !isTarget && blockerIndex === null && (
-            <span className="status-pill pill-movable">
-              TOP &bull; MOVABLE
-            </span>
+            <span className="status-pill pill-movable">TOP · MOVABLE</span>
           )}
         </div>
 
-        {/* Right Corner Casting & Priority Badge */}
         <div className="container-right-col">
-          <span className={`priority-tag p-${container.priority <= 2 ? 'urgent' : container.priority <= 5 ? 'high' : 'standard'}`}>
-            P{container.priority}
-          </span>
-          {/* Vertical Container Locking Rods */}
           <div className="door-rods">
             <div className="rod" />
             <div className="rod" />
+            <span className="door-latch latch-one" />
+            <span className="door-latch latch-two" />
           </div>
         </div>
       </div>
 
-      {/* 2.5D Bottom Sill with Corner Castings */}
       <div className="container-bottom-sill">
         <div className="corner-casting bottom-left" />
         <div className="bottom-sill-line" />

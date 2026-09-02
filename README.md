@@ -22,9 +22,10 @@ Agent inspects v37 -> Agent plans for v37 -> Human locks B01 -> Yard becomes v38
 - `src/domain/engine.ts` — shared validation, mutations, bounded planning, change inspection, and rewind.
 - `src/webmcp/schemas.ts` — strict JSON schemas and agent-facing tool descriptions.
 - `src/webmcp/bridge.ts` — native `document.modelContext.registerTool` integration and evaluator fallback.
-- `src/components/BayCanvas.tsx` — operator canvas with selection, drag/drop, stack locks, and target control.
-- `src/components/AgentOperationsPanel.tsx` — plan preview, rule validation, stale-state status, and tool trace.
-- `src/components/LedgerPanel.tsx` — HUMAN/AGENT/SYSTEM history with before/after/diff inspection and physical rewind.
+- `src/components/BayCanvas.tsx` — cinematic 2.5D operator yard with selection, drag/drop, stack locks, live routes, and target control.
+- `src/components/AgentOperationsPanel.tsx` — edge-mounted agent dock with compact commands, plan preview, rule validation, stale-state status, and tool trace.
+- `src/components/LedgerPanel.tsx` — expandable HUMAN/AGENT/SYSTEM action trail with before/after inspection and physical rewind.
+- `public/bayshift-yard-night.png` — the night-port atmosphere used behind the interactive yard.
 
 Human and agent mutations call the same domain functions. There is no separate agent copy of the yard.
 
@@ -76,10 +77,10 @@ The current automated suite contains 18 passing domain and WebMCP contract tests
 ## Challenge demo
 
 1. Reset to the deterministic v37 scenario.
-2. Use **Inspect**, then **Simulate** in Agent Operations.
+2. Open the **Agent** edge tab, then use **Inspect yard** and **Plan route**.
 3. Click **Human: lock B01** on the plan preview. The shared yard becomes v38.
 4. Click **Execute step 1**. The retained v37 command is rejected with `STALE_STATE`.
-5. Inspect changes and simulate an alternative v38 plan.
+5. Inspect the yard and plan an alternative v38 route.
 6. Execute one move, inspect/replan, then execute the final blocker move.
 7. Retrieve exposed `CX-204`.
 8. Rewind retrieval and inspect the physically restored yard.
@@ -89,7 +90,7 @@ This full sequence has been verified through native WebMCP in a live browser, in
 
 ## Project status
 
-The shared-state domain, native nine-tool WebMCP surface, seeded conflict/recovery scenario, browser flow, and production build are verified. The next production phase is focused on UI/UX animation polish, high-impact demo direction, recorded narration, and final voiceover synchronization.
+The shared-state domain, native nine-tool WebMCP surface, seeded conflict/recovery scenario, cinematic live-yard interface, browser flow, and production build are verified. The remaining production sequence is deployment, a clean fresh-agent demo recording, narration, voiceover synchronization, and Devpost submission.
 
 See [BUILD_STATUS.md](BUILD_STATUS.md), [docs/EVALS.md](docs/EVALS.md), and [docs/NATIVE_WEBMCP_TEST.md](docs/NATIVE_WEBMCP_TEST.md) for implementation and evaluator details.
 

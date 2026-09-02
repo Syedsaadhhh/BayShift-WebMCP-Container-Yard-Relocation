@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bot, Play, Radar, Route, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, Bot, ChevronLeft, ChevronRight, Play, Radar, Route, ShieldAlert } from 'lucide-react';
 import { RelocationPlan, YardState } from '../domain/types';
 import { AgentTraceEvent } from '../webmcp/bridge';
 
@@ -14,63 +14,113 @@ interface AgentOperationsPanelProps {
 }
 
 export const AgentOperationsPanel: React.FC<AgentOperationsPanelProps> = ({
-  state, trace, plan, onInspect, onSimulate, onExecuteNext, onHumanIntervene
+  state,
+  trace,
+  plan,
+  onInspect,
+  onSimulate,
+  onExecuteNext,
+  onHumanIntervene
 }) => {
-  const nextMove = plan?.moves[0];
+  const [isOpen, setIsOpen] = useState(false);
+  const nextMove = plan?.moves[0] ?? null;
   const stale = Boolean(plan && plan.basedOnStateVersion !== state.stateVersion);
+  const latest = trace[trace.length - 1] ?? null;
+  const latestMutation = state.history[state.history.length - 1];
+  const planId = plan?.id ?? null;
+  const agentStatus = stale
+    ? 'PLAN STALE'
+    : plan
+      ? 'PLAN READY'
+      : latest?.status === 'rejected'
+        ? 'ACTION REJECTED'
+        : latest?.tool === 'execute_move'
+          ? 'MOVE COMPLETE'
+          : latest?.tool === 'retrieve_target'
+            ? 'TARGET RETRIEVED'
+            : trace.length
+              ? 'YARD INSPECTED'
+              : 'READY';
+
+  useEffect(() => {
+    if (trace.length > 0 || planId || stale) setIsOpen(true);
+  }, [trace.length, planId, stale]);
 
   return (
-    <section className="agent-operations-panel">
-      <div className="agent-panel-heading">
-        <div><Bot size={15} /><span>AGENT OPERATIONS</span></div>
-        <span className="version-chip">LIVE v{state.stateVersion}</span>
-      </div>
+    <aside className={`agent-dock ${isOpen ? 'is-open' : ''} ${stale ? 'has-alert' : ''}`} aria-label="WebMCP agent operations">
+      <button
+        type="button"
+        className="agent-dock-tab"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-controls="agent-dock-surface"
+      >
+        <span className="agent-orbit"><Bot size={17} /></span>
+        <span className="agent-tab-copy"><small>{latest?.tool ?? 'WEBMCP AGENT'}</small><strong>{agentStatus}</strong></span>
+        {isOpen ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+      </button>
 
-      <div className="agent-command-row">
-        <button type="button" onClick={onInspect}><Radar size={12} /> Inspect</button>
-        <button type="button" className="btn-cyan" onClick={onSimulate}><Route size={12} /> Simulate</button>
-      </div>
+      <div id="agent-dock-surface" className="agent-dock-surface">
+        <header className="agent-panel-heading">
+          <div><span className="agent-live-dot" /><div><small>CONNECTED TO YARD</small><strong>BayShift Agent</strong></div></div>
+          <span className="version-chip">v{state.stateVersion}</span>
+        </header>
 
-      {plan ? (
-        <div className={`plan-preview-card ${stale ? 'plan-stale' : ''}`}>
-          <div className="plan-title-row">
-            <span>PLAN PREVIEW · v{plan.basedOnStateVersion}</span>
-            <strong>{plan.moveCount} moves</strong>
-          </div>
-          {nextMove ? (
-            <>
-              <div className="plan-route">
-                <span className="ghost-container">{nextMove.containerId}</span>
-                <span>{nextMove.fromStack}</span><span>→</span><span className="destination-outline">{nextMove.toStack}</span>
-              </div>
+        <div className="agent-command-row">
+          <button type="button" onClick={onInspect}><Radar size={14} /> Inspect yard</button>
+          <button type="button" className="btn-cyan" onClick={onSimulate}><Route size={14} /> Plan route</button>
+        </div>
+
+        {plan ? (
+          <section className={`plan-preview-card ${stale ? 'plan-stale' : ''}`}>
+            <div className="plan-title-row"><span>{stale ? 'INVALIDATED PLAN' : 'MINIMUM ROUTE'}</span><strong>{plan.moveCount} move{plan.moveCount === 1 ? '' : 's'}</strong></div>
+            <div className="plan-move-list">
+              {plan.moves.slice(0, 3).map((move) => (
+                <div key={`${move.step}-${move.containerId}`} className="plan-move-row">
+                  <span>{move.step}</span>
+                  <strong>{move.containerId}</strong>
+                  <code>{move.fromStack}</code>
+                  <i>→</i>
+                  <code>{move.toStack}</code>
+                </div>
+              ))}
+              {plan.moves.length === 0 ? <div className="plan-ready">Target is already exposed.</div> : null}
+            </div>
+
+            {nextMove ? (
               <div className="validation-mini">
                 {nextMove.validation.filter((check) => check.rule !== 'URGENCY').map((check) => (
                   <span key={check.rule} className={check.passed ? 'valid' : 'invalid'}>{check.passed ? '✓' : '×'} {check.rule}</span>
                 ))}
               </div>
-            </>
-          ) : <div className="plan-ready">Target already exposed.</div>}
+            ) : null}
 
-          {stale && <div className="stale-warning"><ShieldAlert size={12} /> Yard changed to v{state.stateVersion}; executing this v{plan.basedOnStateVersion} plan will prove STALE_STATE protection.</div>}
-          {nextMove && (
-            <div className="plan-actions">
-              <button type="button" className="btn-amber" onClick={onHumanIntervene}>Human: lock {nextMove.toStack}</button>
-              <button type="button" className="btn-cyan" onClick={onExecuteNext}><Play size={11} /> Execute step 1</button>
+            {stale ? (
+              <div className="stale-warning"><ShieldAlert size={14} /><div><strong>STALE v{plan.basedOnStateVersion} → v{state.stateVersion}</strong><span>{latestMutation?.actor.toUpperCase() ?? 'SHARED'} action advanced the yard. Inspect and replan before execution.</span></div></div>
+            ) : null}
+
+            {nextMove ? (
+              <div className="plan-actions">
+                <button type="button" className="btn-amber" onClick={onHumanIntervene}>Human locks {nextMove.toStack}</button>
+                <button type="button" className="btn-cyan" onClick={onExecuteNext}><Play size={12} /> Execute step 1</button>
+              </div>
+            ) : null}
+          </section>
+        ) : (
+          <div className="agent-empty"><Route size={18} /><span>Ask an external agent—or use these controls—to inspect the live yard and plan the shortest legal route.</span></div>
+        )}
+
+        <section className="agent-trace">
+          <div className="trace-heading"><Activity size={12} /> LIVE TOOL ACTIVITY</div>
+          {trace.length === 0 ? <div className="trace-empty">Waiting for the first WebMCP call.</div> : trace.slice(-4).reverse().map((event) => (
+            <div key={event.id} className={`trace-row trace-${event.status}`}>
+              <span className="trace-status-dot" />
+              <div><strong>{event.tool}</strong><small>{event.summary}</small></div>
+              <span className="trace-version">v{event.stateVersion}</span>
             </div>
-          )}
-        </div>
-      ) : <div className="agent-empty">Inspect the shared yard, then simulate a minimum-relocation plan.</div>}
-
-      <div className="agent-trace">
-        <div className="trace-heading">AUDITABLE TOOL TRACE</div>
-        {trace.length === 0 ? <div className="trace-empty">No agent calls yet.</div> : trace.slice(-5).reverse().map((event) => (
-          <div key={event.id} className={`trace-row trace-${event.status}`}>
-            <span className="trace-time">{event.timestamp}</span>
-            <div><strong>{event.tool}</strong><small>{event.summary}</small></div>
-            <span className="trace-version">v{event.stateVersion}</span>
-          </div>
-        ))}
+          ))}
+        </section>
       </div>
-    </section>
+    </aside>
   );
 };

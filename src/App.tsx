@@ -1,19 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { applyMove, resetScenario, retrieveTarget, rewindYard, setLaneOrCraneOutage, setRetrievalTarget, setStackLock, triggerLateTruckUpdate } from './domain/engine';
+import { applyMove, findContainerLocation, resetScenario, retrieveTarget, rewindYard, setLaneOrCraneOutage, setRetrievalTarget, setStackLock, triggerLateTruckUpdate } from './domain/engine';
 import { createInitialState } from './domain/scenario';
 import { RelocationPlan, YardState } from './domain/types';
 import { AgentTraceEvent, RegisteredToolInfo, WebMCPBridge } from './webmcp/bridge';
 import { BayCanvas } from './components/BayCanvas';
-import { MissionClarityStrip } from './components/MissionClarityStrip';
-import { WhatsHappeningCard } from './components/WhatsHappeningCard';
-import { QueuePanel } from './components/QueuePanel';
-import { InterventionPanel } from './components/InterventionPanel';
 import { LedgerPanel } from './components/LedgerPanel';
 import { JudgeWalkthroughModal } from './components/JudgeWalkthroughModal';
 import { WhyItMattersDrawer } from './components/WhyItMattersDrawer';
 import { ToolInspectorDrawer } from './components/ToolInspectorDrawer';
 import { AgentOperationsPanel } from './components/AgentOperationsPanel';
-import { AlertTriangle, Bot, Box, CheckCircle, HelpCircle, RefreshCw, RotateCcw, Truck, Wrench } from 'lucide-react';
+import { AlertTriangle, Bot, Box, CheckCircle, HelpCircle, Radio, RefreshCw, RotateCcw, Target, Truck, Wrench } from 'lucide-react';
 import './App.css';
 
 export const App: React.FC = () => {
@@ -136,7 +132,9 @@ export const App: React.FC = () => {
   const handleAgentExecuteNext = useCallback(async () => {
     const move = activePlan?.moves[0];
     if (!move || !activePlan) return;
-    await executeAgentTool('execute_move', { containerId: move.containerId, fromStack: move.fromStack, toStack: move.toStack, rationale: `Executing deterministic ${activePlan.id}`, expectedStateVersion: activePlan.basedOnStateVersion });
+    const raw = await executeAgentTool('execute_move', { containerId: move.containerId, fromStack: move.fromStack, toStack: move.toStack, rationale: `Executing deterministic ${activePlan.id}`, expectedStateVersion: activePlan.basedOnStateVersion });
+    const result = JSON.parse(raw) as { ok?: boolean };
+    if (result.ok !== false) setActivePlan(null);
   }, [activePlan, executeAgentTool]);
 
   const handleSimulatePrompt = async (promptIndex: number) => {
@@ -151,40 +149,78 @@ export const App: React.FC = () => {
 
   const canRewind = state.history.some((event) => event.reversible && event.snapshotBefore);
   const isWebMCPSupported = bridgeRef.current?.isSupported() ?? false;
+  const targetLocation = state.targetContainerId ? findContainerLocation(state.stacks, state.targetContainerId) : null;
+  const targetRecord = targetLocation?.stack.containers[targetLocation.index] ?? null;
+  const blockerCount = targetLocation?.depth ?? 0;
+  const latestTrace = agentTrace[agentTrace.length - 1] ?? null;
+  const b05 = state.stacks.find((stack) => stack.id === 'B05');
 
   return (
-    <div className="app-container">
-      <header className="top-bar">
-        <div className="top-bar-left">
-          <div className="logo-area"><Box className="logo-icon" size={22} /><div className="logo-text-group"><span className="product-title">BayShift</span><span className="product-subtitle">Shared live container-yard relocation canvas</span></div></div>
-          <div className={`badge ${isWebMCPSupported ? 'badge-connected' : 'badge-manual'}`}>{isWebMCPSupported ? 'WebMCP · Connected' : 'WebMCP · Simulator'}</div>
-          <span className="badge badge-shared-state"><Bot size={11} /> ONE SHARED YARD · v{state.stateVersion}</span>
-          <span className="badge badge-scenario">CX-204 · ETA 16:45 · 2 BLOCKERS</span>
+    <div className="app-container cinematic-shell">
+      <header className="command-bar">
+        <div className="brand-lockup">
+          <span className="brand-mark"><Box size={21} /></span>
+          <div><strong>BayShift</strong><small>Shared yard intelligence</small></div>
         </div>
-        <div className="top-bar-actions">
-          <button type="button" className="btn-amber" onClick={handleLateTruck}><Truck size={14} /> Late Truck</button>
-          <button type="button" onClick={() => handleRewind()} disabled={!canRewind}><RotateCcw size={14} /> Rewind</button>
-          <button type="button" onClick={handleReset}><RefreshCw size={14} /> Reset</button>
-          <button type="button" className="btn-cyan btn-judge" onClick={() => setIsJudgeModalOpen(true)}>Demo Guide</button>
-          <button type="button" className="btn-inspector" onClick={() => setIsToolInspectorOpen(true)}><Wrench size={14} /> Tools ({registeredTools.length})</button>
-          <button type="button" onClick={() => setIsWhyModalOpen(true)} aria-label="Why BayShift matters"><HelpCircle size={14} /></button>
+
+        <section className={`mission-capsule ${blockerCount === 0 ? 'mission-ready' : ''}`} aria-label="Current retrieval mission">
+          <div className="mission-target-icon"><Target size={17} /></div>
+          <div className="mission-copy">
+            <span>Priority retrieval</span>
+            <strong>{state.targetContainerId ?? 'Yard clear'}</strong>
+          </div>
+          {state.targetContainerId ? (
+            <div className="mission-condition">
+              <strong>{blockerCount === 0 ? 'EXPOSED' : `${blockerCount} BLOCKERS`}</strong>
+              <span>{targetLocation?.stack.id ?? '—'} · truck {targetRecord?.truckEta ?? '—'}</span>
+            </div>
+          ) : <div className="mission-condition"><strong>COMPLETE</strong><span>Dispatched to gate</span></div>}
+          {blockerCount === 0 && state.targetContainerId ? (
+            <button type="button" className="retrieve-cta" onClick={handleRetrieveCurrentTarget}>Retrieve now</button>
+          ) : null}
+        </section>
+
+        <div className="live-state-cluster">
+          <span className={`connection-signal ${isWebMCPSupported ? 'is-live' : ''}`}><Radio size={12} /> {isWebMCPSupported ? 'WebMCP live' : 'Simulator'}</span>
+          <span className="state-version">YARD v{state.stateVersion}</span>
         </div>
       </header>
 
-      <MissionClarityStrip target={state.targetContainerId} />
-      {bannerNotice && <div className={`event-pulse-banner banner-${bannerNotice.actor}`}>{bannerNotice.actor === 'agent' ? <Bot size={15} /> : bannerNotice.actor === 'human' ? <CheckCircle size={15} /> : <AlertTriangle size={15} />}<span>{bannerNotice.text}</span></div>}
+      {bannerNotice ? (
+        <div className={`event-pulse-banner banner-${bannerNotice.actor}`}>
+          {bannerNotice.actor === 'agent' ? <Bot size={15} /> : bannerNotice.actor === 'human' ? <CheckCircle size={15} /> : <AlertTriangle size={15} />}
+          <span>{bannerNotice.text}</span>
+        </div>
+      ) : null}
 
-      <div className="main-layout">
-        <BayCanvas state={state} onHumanMove={handleHumanMove} onToggleLock={handleToggleLock} selectedContainerId={selectedContainerId} onSelectContainer={setSelectedContainerId} onSetTarget={handleSetTarget} />
-        <aside className="right-rail">
-          <AgentOperationsPanel state={state} trace={agentTrace} plan={activePlan} onInspect={() => void handleAgentInspect()} onSimulate={() => void handleAgentSimulate()} onExecuteNext={() => void handleAgentExecuteNext()} onHumanIntervene={() => activePlan?.moves[0] && handleToggleLock(activePlan.moves[0].toStack, true)} />
-          <WhatsHappeningCard state={state} onRetrieveCurrentTarget={handleRetrieveCurrentTarget} />
-          <InterventionPanel state={state} onLateTruck={handleLateTruck} onToggleLock={handleToggleLock} onToggleOutage={handleOutage} />
-          <QueuePanel state={state} onRetrieveCurrentTarget={handleRetrieveCurrentTarget} />
-        </aside>
-      </div>
+      <main className="yard-stage">
+        <BayCanvas
+          state={state}
+          plan={activePlan}
+          latestTrace={latestTrace}
+          onHumanMove={handleHumanMove}
+          onToggleLock={handleToggleLock}
+          selectedContainerId={selectedContainerId}
+          onSelectContainer={setSelectedContainerId}
+          onSetTarget={handleSetTarget}
+        />
 
-      <LedgerPanel history={state.history} onRewind={handleRewind} canRewind={canRewind} />
+        <nav className="operator-dock" aria-label="Human yard controls">
+          <span className="dock-label">HUMAN</span>
+          <button type="button" className="dock-action is-warning" onClick={handleLateTruck} title="Inject a late-truck priority event"><Truck size={16} /><span>Late truck</span></button>
+          <button type="button" className={b05?.outage ? 'dock-action is-danger' : 'dock-action'} onClick={() => handleOutage('B05', !b05?.outage)} title="Toggle B05 crane outage"><AlertTriangle size={16} /><span>{b05?.outage ? 'Clear outage' : 'B05 outage'}</span></button>
+          <button type="button" className="dock-action" onClick={() => handleRewind()} disabled={!canRewind} title="Rewind the latest physical action"><RotateCcw size={16} /><span>Rewind</span></button>
+          <button type="button" className="dock-action" onClick={handleReset} title="Restore the seeded v37 scenario"><RefreshCw size={16} /><span>Reset yard</span></button>
+          <span className="dock-divider" />
+          <button type="button" className="dock-action" onClick={() => setIsToolInspectorOpen(true)} title="Inspect all registered WebMCP tools"><Wrench size={16} /><span>{registeredTools.length} tools</span></button>
+          <button type="button" className="dock-action" onClick={() => setIsJudgeModalOpen(true)} title="Open the recorded demo guide"><Bot size={16} /><span>Demo</span></button>
+          <button type="button" className="dock-action" onClick={() => setIsWhyModalOpen(true)} title="Why BayShift matters"><HelpCircle size={16} /><span>About</span></button>
+        </nav>
+
+        <AgentOperationsPanel state={state} trace={agentTrace} plan={activePlan} onInspect={() => void handleAgentInspect()} onSimulate={() => void handleAgentSimulate()} onExecuteNext={() => void handleAgentExecuteNext()} onHumanIntervene={() => activePlan?.moves[0] && handleToggleLock(activePlan.moves[0].toStack, true)} />
+        <LedgerPanel history={state.history} onRewind={handleRewind} canRewind={canRewind} />
+      </main>
+
       <JudgeWalkthroughModal isOpen={isJudgeModalOpen} onClose={() => setIsJudgeModalOpen(false)} registeredTools={registeredTools} onSimulatePrompt={handleSimulatePrompt} />
       <WhyItMattersDrawer isOpen={isWhyModalOpen} onClose={() => setIsWhyModalOpen(false)} />
       <ToolInspectorDrawer isOpen={isToolInspectorOpen} onClose={() => setIsToolInspectorOpen(false)} registeredTools={registeredTools} onExecuteTool={executeAgentTool} />
