@@ -25,7 +25,7 @@ Agent inspects v37 -> Agent plans for v37 -> Human locks B01 -> Yard becomes v38
 - `src/components/BayCanvas.tsx` — cinematic 2.5D operator yard with selection, drag/drop, stack locks, live routes, and target control.
 - `src/components/AgentOperationsPanel.tsx` — edge-mounted agent dock with compact commands, plan preview, rule validation, stale-state status, and tool trace.
 - `src/components/LedgerPanel.tsx` — expandable HUMAN/AGENT/SYSTEM action trail with before/after inspection and physical rewind.
-- `public/bayshift-yard-night.png` — the night-port atmosphere used behind the interactive yard.
+- `public/bayshift-yard-night.jpg` — the optimized night-port atmosphere used behind the interactive yard.
 
 Human and agent mutations call the same domain functions. There is no separate agent copy of the yard.
 

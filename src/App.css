@@ -138,7 +138,7 @@ button:disabled {
   border: 1px solid rgba(137, 199, 225, 0.2);
   border-radius: 18px;
   background: linear-gradient(100deg, rgba(3, 14, 25, 0.89), rgba(7, 22, 35, 0.72));
-  backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.12);
   box-shadow: 0 14px 46px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.045);
 }
 
@@ -323,7 +323,7 @@ button:disabled {
   background:
     linear-gradient(180deg, rgba(0, 8, 18, 0.03) 0%, rgba(0, 8, 18, 0.14) 30%, rgba(0, 7, 15, 0.56) 100%),
     linear-gradient(90deg, rgba(0, 8, 18, 0.26), transparent 32%, transparent 68%, rgba(0, 8, 18, 0.32)),
-    url('/bayshift-yard-night.png') center 44% / cover no-repeat;
+    url('/bayshift-yard-night.jpg') center 44% / cover no-repeat;
 }
 
 .operational-yard::before {
@@ -1208,7 +1208,7 @@ button:disabled {
   border: 1px solid var(--actor-human-border);
   border-radius: 10px;
   background: rgba(32, 22, 8, 0.85);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);
   box-shadow: 0 13px 35px rgba(0, 0, 0, 0.42);
   transform: translateX(-50%);
 }
@@ -1260,7 +1260,7 @@ button:disabled {
   border-radius: 7px;
   color: rgba(192, 216, 227, 0.64);
   background: rgba(2, 12, 20, 0.58);
-  backdrop-filter: blur(7px);
+  backdrop-filter: blur(4px);
   font: 700 7px/1 ui-monospace, monospace;
   text-transform: uppercase;
 }
@@ -1295,7 +1295,7 @@ button:disabled {
   border: 1px solid rgba(139, 197, 221, 0.2);
   border-radius: 14px;
   background: var(--glass-soft);
-  backdrop-filter: blur(15px);
+  backdrop-filter: blur(8px);
   box-shadow: var(--shadow-deep);
   transform: translateY(-43%);
 }
@@ -1450,7 +1450,7 @@ button:disabled {
   border: 1px solid rgba(56, 217, 245, 0.32);
   border-radius: 15px 0 0 15px;
   background: var(--glass);
-  backdrop-filter: blur(20px) saturate(1.22);
+  backdrop-filter: blur(10px) saturate(1.14);
   box-shadow: var(--shadow-deep), inset 0 1px rgba(255, 255, 255, 0.055);
   scrollbar-width: thin;
   scrollbar-color: rgba(56, 217, 245, 0.25) transparent;
