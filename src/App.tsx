@@ -51,7 +51,11 @@ export const App: React.FC = () => {
     );
     bridgeRef.current = bridge;
     void bridge.registerAll();
-    return () => bridge.cleanup();
+    const registrationRetry = window.setTimeout(() => void bridge.registerAll(), 350);
+    return () => {
+      window.clearTimeout(registrationRetry);
+      bridge.cleanup();
+    };
   }, []);
 
   const applyResult = useCallback((result: ReturnType<typeof applyMove>, successMessage?: string) => {

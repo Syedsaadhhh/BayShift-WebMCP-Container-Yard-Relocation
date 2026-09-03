@@ -50,14 +50,15 @@ export class WebMCPBridge {
   }
 
   public async registerAll(): Promise<void> {
-    this.cleanup();
+    this.abortController?.abort();
     const controller = new AbortController();
     this.abortController = controller;
+    this.registeredTools.clear();
     for (const definition of TOOL_DEFINITIONS) {
       if (controller.signal.aborted) break;
       await this.registerTool(definition, controller.signal);
     }
-    this.onToolsChange?.(this.getRegisteredToolsList());
+    if (!controller.signal.aborted) this.onToolsChange?.(this.getRegisteredToolsList());
   }
 
   private async registerTool(definition: ToolDefinition, signal: AbortSignal): Promise<void> {
