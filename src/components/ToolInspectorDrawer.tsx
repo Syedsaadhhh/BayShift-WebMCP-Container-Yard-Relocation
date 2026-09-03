@@ -7,13 +7,17 @@ interface ToolInspectorDrawerProps {
   onClose: () => void;
   registeredTools: RegisteredToolInfo[];
   onExecuteTool: (toolName: string, input: any) => Promise<string>;
+  targetId: string | null;
+  stateVersion: number;
 }
 
 export const ToolInspectorDrawer: React.FC<ToolInspectorDrawerProps> = ({
   isOpen,
   onClose,
   registeredTools,
-  onExecuteTool
+  onExecuteTool,
+  targetId,
+  stateVersion
 }) => {
   const [selectedTool, setSelectedTool] = useState<string>(registeredTools[0]?.name || 'inspect_yard');
   const [inputJson, setInputJson] = useState<string>('{}');
@@ -30,19 +34,19 @@ export const ToolInspectorDrawer: React.FC<ToolInspectorDrawerProps> = ({
     if (name === 'inspect_yard') {
       setInputJson('{}');
     } else if (name === 'get_container' || name === 'analyze_blockers') {
-      setInputJson('{\n  "containerId": "CX-204"\n}');
+      setInputJson(`{\n  "containerId": "${targetId ?? 'CX-000'}"\n}`);
     } else if (name === 'validate_move') {
       setInputJson('{\n  "containerId": "CX-203",\n  "fromStack": "B02",\n  "toStack": "B01"\n}');
     } else if (name === 'simulate_relocations') {
-      setInputJson('{\n  "containerId": "CX-204",\n  "maxPlans": 3\n}');
+      setInputJson(`{\n  "containerId": "${targetId ?? 'CX-000'}",\n  "maxPlans": 3\n}`);
     } else if (name === 'execute_move') {
-      setInputJson('{\n  "containerId": "CX-203",\n  "fromStack": "B02",\n  "toStack": "B01",\n  "expectedStateVersion": 37,\n  "rationale": "Clear the first blocker above CX-204"\n}');
+      setInputJson(`{\n  "containerId": "CX-203",\n  "fromStack": "B02",\n  "toStack": "B01",\n  "expectedStateVersion": ${stateVersion},\n  "rationale": "Inspect first, then clear the current target."\n}`);
     } else if (name === 'retrieve_target') {
-      setInputJson('{\n  "containerId": "CX-204",\n  "expectedStateVersion": 39\n}');
+      setInputJson(`{\n  "containerId": "${targetId ?? 'CX-000'}",\n  "expectedStateVersion": ${stateVersion}\n}`);
     } else if (name === 'inspect_changes') {
-      setInputJson('{\n  "sinceStateVersion": 37\n}');
+      setInputJson(`{\n  "sinceStateVersion": ${Math.max(0, stateVersion - 1)}\n}`);
     } else if (name === 'rewind_yard') {
-      setInputJson('{\n  "expectedStateVersion": 38\n}');
+      setInputJson(`{\n  "expectedStateVersion": ${stateVersion}\n}`);
     }
   };
 

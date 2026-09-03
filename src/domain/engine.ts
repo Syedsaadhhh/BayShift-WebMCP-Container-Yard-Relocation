@@ -341,5 +341,5 @@ export const rewindLastAction = rewindYard;
 export function resetScenario(actor: Actor = 'human', currentState?: YardState): YardState {
   if (!currentState) return createInitialState();
   const next = createInitialSnapshot();
-  return commitMutation(currentState, actor, 'reset', { scenario: 'CX-204 hero' }, [...STACK_IDS], next, { restored: true }, false);
+  return commitMutation(currentState, actor, 'reset', { scenario: `live mission ${next.targetContainerId}` }, [...STACK_IDS], next, { restored: true, target: next.targetContainerId }, false);
 }

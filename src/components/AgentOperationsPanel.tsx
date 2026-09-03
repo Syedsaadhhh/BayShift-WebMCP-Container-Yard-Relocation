@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Activity, Bot, ChevronLeft, ChevronRight, Play, Radar, Route, ShieldAlert } from 'lucide-react';
 import { RelocationPlan, YardState } from '../domain/types';
 import { AgentTraceEvent } from '../webmcp/bridge';
@@ -27,7 +27,6 @@ export const AgentOperationsPanel: React.FC<AgentOperationsPanelProps> = ({
   const stale = Boolean(plan && plan.basedOnStateVersion !== state.stateVersion);
   const latest = trace[trace.length - 1] ?? null;
   const latestMutation = state.history[state.history.length - 1];
-  const planId = plan?.id ?? null;
   const agentStatus = stale
     ? 'PLAN STALE'
     : plan
@@ -41,10 +40,6 @@ export const AgentOperationsPanel: React.FC<AgentOperationsPanelProps> = ({
             : trace.length
               ? 'YARD INSPECTED'
               : 'READY';
-
-  useEffect(() => {
-    if (trace.length > 0 || planId || stale) setIsOpen(true);
-  }, [trace.length, planId, stale]);
 
   return (
     <aside className={`agent-dock ${isOpen ? 'is-open' : ''} ${stale ? 'has-alert' : ''}`} aria-label="WebMCP agent operations">

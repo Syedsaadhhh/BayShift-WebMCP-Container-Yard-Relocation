@@ -107,7 +107,12 @@ export class WebMCPBridge {
   private mutate(run: (state: YardState) => CommandResult<YardState>): CommandResult<YardState> {
     const current = this.stateGetter();
     const result = run(current);
-    if (result.ok && result.data) this.stateUpdater(() => result.data!);
+    if (result.ok && result.data) {
+      this.stateUpdater(() => result.data!);
+      // A plan is tied to one exact state version. Leaving it visible after a
+      // real mutation makes the UI look actionable when it is not.
+      this.onPlanPreview?.(null);
+    }
     return result;
   }
 

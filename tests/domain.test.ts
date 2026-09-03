@@ -4,7 +4,7 @@ import { createInitialState, HERO_TARGET, normalizeStacks } from '../src/domain/
 
 describe('BayShift authoritative yard domain', () => {
   it('seeds the hero target under exactly two blockers at v37', () => {
-    const state = createInitialState();
+    const state = createInitialState('classic');
     const location = findContainerLocation(state.stacks, HERO_TARGET)!;
     expect(state.stateVersion).toBe(37);
     expect(location.stack.id).toBe('B02');
@@ -13,14 +13,14 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('rejects a non-top container under the LIFO rule', () => {
-    const result = validateMove(createInitialState(), { containerId: 'CX-188', fromStack: 'B02', toStack: 'B01' });
+    const result = validateMove(createInitialState('classic'), { containerId: 'CX-188', fromStack: 'B02', toStack: 'B01' });
     expect(result.legal).toBe(false);
     expect(result.code).toBe('NOT_TOP_CONTAINER');
     expect(result.reason).toContain('CX-203');
   });
 
   it('rejects a destination at maximum height', () => {
-    const state = createInitialState();
+    const state = createInitialState('classic');
     const destination = state.stacks.find((stack) => stack.id === 'B05')!;
     const seed = destination.containers[0];
     while (destination.containers.length < destination.capacity) destination.containers.push({ ...seed, id: `CX-90${destination.containers.length}`, tier: destination.containers.length + 1 });
@@ -28,13 +28,13 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('rejects a locked destination stack', () => {
-    const state = createInitialState();
+    const state = createInitialState('classic');
     state.stacks.find((stack) => stack.id === 'B01')!.locked = true;
     expect(validateMove(state, { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01' }).code).toBe('STACK_LOCKED');
   });
 
   it('rejects a heavier container placed on a lighter one', () => {
-    const state = createInitialState();
+    const state = createInitialState('classic');
     const source = state.stacks.find((stack) => stack.id === 'B01')!;
     source.containers = [source.containers[0]];
     state.stacks = normalizeStacks(state.stacks, state.targetContainerId);
@@ -42,18 +42,18 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('rejects incompatible reserved destinations', () => {
-    expect(validateMove(createInitialState(), { containerId: 'CX-203', fromStack: 'B02', toStack: 'B03' }).code).toBe('INCOMPATIBLE_DESTINATION');
+    expect(validateMove(createInitialState('classic'), { containerId: 'CX-203', fromStack: 'B02', toStack: 'B03' }).code).toBe('INCOMPATIBLE_DESTINATION');
   });
 
   it('increments stateVersion after a successful move', () => {
-    const result = applyMove(createInitialState(), 'human', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 });
+    const result = applyMove(createInitialState('classic'), 'human', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 });
     expect(result.ok).toBe(true);
     expect(result.data?.stateVersion).toBe(38);
     expect(result.data?.history.at(-1)?.actor).toBe('human');
   });
 
   it('rejects stale destructive commands without mutation', () => {
-    const initial = createInitialState();
+    const initial = createInitialState('classic');
     const locked = setStackLock(initial, 'human', { stackId: 'B04', locked: true, expectedStateVersion: 37 }).data!;
     const before = JSON.stringify(locked);
     const result = applyMove(locked, 'agent', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 });
@@ -64,7 +64,7 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('plans without mutating the yard', () => {
-    const state = createInitialState();
+    const state = createInitialState('classic');
     const before = JSON.stringify(state);
     const result = simulateRelocations(state, HERO_TARGET, 3);
     expect(result.ok).toBe(true);
@@ -74,7 +74,7 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('rewind restores the physical snapshot while version stays monotonic', () => {
-    const initial = createInitialState();
+    const initial = createInitialState('classic');
     const moved = applyMove(initial, 'human', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
     const rewound = rewindYard(moved, 'human', { expectedStateVersion: 38 }).data!;
     expect(rewound.stacks).toEqual(initial.stacks);
@@ -84,7 +84,7 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('exposes and retrieves CX-204 after two legal moves', () => {
-    const first = applyMove(createInitialState(), 'agent', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
+    const first = applyMove(createInitialState('classic'), 'agent', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
     const second = applyMove(first, 'agent', { containerId: 'CX-188', fromStack: 'B02', toStack: 'B04', expectedStateVersion: 38 }).data!;
     expect(inspectYard(second).targetExposed).toBe(true);
     const retrieved = retrieveTarget(second, 'agent', { containerId: HERO_TARGET, expectedStateVersion: 39 });
@@ -93,8 +93,8 @@ describe('BayShift authoritative yard domain', () => {
   });
 
   it('human and agent mutations use identical physical transitions', () => {
-    const human = applyMove(createInitialState(), 'human', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
-    const agent = applyMove(createInitialState(), 'agent', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
+    const human = applyMove(createInitialState('classic'), 'human', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
+    const agent = applyMove(createInitialState('classic'), 'agent', { containerId: 'CX-203', fromStack: 'B02', toStack: 'B01', expectedStateVersion: 37 }).data!;
     expect(agent.stacks).toEqual(human.stacks);
     expect(agent.metrics).toEqual(human.metrics);
     expect(agent.stateVersion).toBe(human.stateVersion);

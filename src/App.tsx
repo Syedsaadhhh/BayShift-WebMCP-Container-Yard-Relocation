@@ -58,6 +58,12 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Plans are valid only for the version that produced them. Native WebMCP
+    // calls and human actions both advance the shared yard independently.
+    setActivePlan((plan) => plan && plan.basedOnStateVersion !== state.stateVersion ? null : plan);
+  }, [state.stateVersion]);
+
   const applyResult = useCallback((result: ReturnType<typeof applyMove>, successMessage?: string) => {
     if (!result.ok || !result.data) {
       showBanner(`${result.code}: ${result.message}`, 'system');
@@ -113,7 +119,7 @@ export const App: React.FC = () => {
   const handleReset = useCallback(() => {
     const fresh = resetScenario('human', stateRef.current);
     publishState(fresh); setSelectedContainerId(null); setActivePlan(null); setAgentTrace([]);
-    showBanner(`Hero scenario restored at yard v${fresh.stateVersion}`, 'system');
+    showBanner(`New live mission restored at yard v${fresh.stateVersion}`, 'system');
   }, [publishState, showBanner]);
 
   const executeAgentTool = useCallback(async (name: string, input: Record<string, unknown>) => {
@@ -227,7 +233,7 @@ export const App: React.FC = () => {
 
       <JudgeWalkthroughModal isOpen={isJudgeModalOpen} onClose={() => setIsJudgeModalOpen(false)} registeredTools={registeredTools} onSimulatePrompt={handleSimulatePrompt} />
       <WhyItMattersDrawer isOpen={isWhyModalOpen} onClose={() => setIsWhyModalOpen(false)} />
-      <ToolInspectorDrawer isOpen={isToolInspectorOpen} onClose={() => setIsToolInspectorOpen(false)} registeredTools={registeredTools} onExecuteTool={executeAgentTool} />
+      <ToolInspectorDrawer isOpen={isToolInspectorOpen} onClose={() => setIsToolInspectorOpen(false)} registeredTools={registeredTools} onExecuteTool={executeAgentTool} targetId={state.targetContainerId} stateVersion={state.stateVersion} />
     </div>
   );
 };

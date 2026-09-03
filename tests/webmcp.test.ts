@@ -4,7 +4,7 @@ import { YardState } from '../src/domain/types';
 import { AgentTraceEvent, WebMCPBridge } from '../src/webmcp/bridge';
 
 function harness() {
-  let state: YardState = createInitialState();
+  let state: YardState = createInitialState('classic');
   const trace: AgentTraceEvent[] = [];
   const bridge = new WebMCPBridge(() => state, (updater) => { state = updater(state); }, undefined, (event) => trace.push(event));
   return { bridge, trace, get state() { return state; } };
@@ -56,7 +56,7 @@ describe('WebMCP semantic surface', () => {
   });
 
   it('returns the real result even when a React-style updater is deferred', async () => {
-    let state = createInitialState();
+    let state = createInitialState('classic');
     let pending: ((previous: YardState) => YardState) | undefined;
     const bridge = new WebMCPBridge(() => state, (updater) => { pending = updater; });
     await bridge.registerAll();
