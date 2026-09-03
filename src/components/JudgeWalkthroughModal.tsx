@@ -7,30 +7,34 @@ interface JudgeWalkthroughModalProps {
   onClose: () => void;
   registeredTools: RegisteredToolInfo[];
   onSimulatePrompt?: (promptIndex: number) => void;
+  targetId: string | null;
 }
 
 export const JudgeWalkthroughModal: React.FC<JudgeWalkthroughModalProps> = ({
   isOpen,
   onClose,
   registeredTools,
-  onSimulatePrompt
+  onSimulatePrompt,
+  targetId
 }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
+  const activeTarget = targetId ?? 'the current target';
+
   const primaryPrompts = [
     {
       id: 'A',
       title: 'Prompt A: Inspect & Explain Blockers (Read-only Analysis)',
-      text: 'Inspect the yard and explain what blocks CX-204. Do not move anything yet.',
+      text: `Inspect the yard and explain what blocks ${activeTarget}. Do not move anything yet.`,
       expected:
-        'Agent invokes inspect_yard() and analyze_blockers(containerId="CX-204"). It identifies CX-188 and top blocker CX-203 in B02 and reads stateVersion 37 without mutating the yard.'
+        `Agent invokes inspect_yard() and analyze_blockers(containerId="${activeTarget}"). It identifies the current physical blockers and reads the current stateVersion without mutating the yard.`
     },
     {
       id: 'B',
       title: 'Prompt B: Constraint-Aware Clearance & Retrieval',
-      text: 'Simulate the minimum relocation plan for CX-204. I will lock a destination before you execute; recover from STALE_STATE, re-inspect, then clear and retrieve the target.',
+      text: `Simulate the minimum relocation plan for ${activeTarget}. I will lock a destination before you execute; recover from STALE_STATE, re-inspect, then clear and retrieve the target.`,
       expected:
         'Agent calls simulate_relocations, then execute_move with expectedStateVersion. The operator lock increments the yard version, the old command returns STALE_STATE, and the agent re-inspects and replans.'
     },

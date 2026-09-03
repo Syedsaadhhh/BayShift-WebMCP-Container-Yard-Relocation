@@ -231,7 +231,7 @@ export const App: React.FC = () => {
         <LedgerPanel history={state.history} onRewind={handleRewind} canRewind={canRewind} />
       </main>
 
-      <JudgeWalkthroughModal isOpen={isJudgeModalOpen} onClose={() => setIsJudgeModalOpen(false)} registeredTools={registeredTools} onSimulatePrompt={handleSimulatePrompt} />
+      <JudgeWalkthroughModal isOpen={isJudgeModalOpen} onClose={() => setIsJudgeModalOpen(false)} registeredTools={registeredTools} onSimulatePrompt={handleSimulatePrompt} targetId={state.targetContainerId} />
       <WhyItMattersDrawer isOpen={isWhyModalOpen} onClose={() => setIsWhyModalOpen(false)} />
       <ToolInspectorDrawer isOpen={isToolInspectorOpen} onClose={() => setIsToolInspectorOpen(false)} registeredTools={registeredTools} onExecuteTool={executeAgentTool} targetId={state.targetContainerId} stateVersion={state.stateVersion} />
     </div>
