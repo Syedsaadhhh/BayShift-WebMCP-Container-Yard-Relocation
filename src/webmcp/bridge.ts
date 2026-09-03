@@ -54,10 +54,7 @@ export class WebMCPBridge {
     const controller = new AbortController();
     this.abortController = controller;
     this.registeredTools.clear();
-    for (const definition of TOOL_DEFINITIONS) {
-      if (controller.signal.aborted) break;
-      await this.registerTool(definition, controller.signal);
-    }
+    await Promise.all(TOOL_DEFINITIONS.map((definition) => this.registerTool(definition, controller.signal)));
     if (!controller.signal.aborted) this.onToolsChange?.(this.getRegisteredToolsList());
   }
 
