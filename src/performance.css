@@ -1,0 +1,118 @@
+/* Final demo performance layer.
+   Keep the physical 2.5D yard and event feedback; remove continuous decorative compositor work. */
+
+/* Ambient motion should never keep the page busy while the yard is idle. */
+.connection-signal.is-live svg,
+.yard-haze,
+.vehicle-one,
+.vehicle-two {
+  animation: none !important;
+}
+
+/* Any remaining CSS animation gets one finite pass instead of looping forever.
+   Event components are remounted/keyed when a new action occurs, so meaningful
+   move/scan/banner feedback still replays on the next real state change. */
+.cinematic-shell *,
+.cinematic-shell *::before,
+.cinematic-shell *::after {
+  animation-iteration-count: 1 !important;
+}
+
+/* Preserve atmosphere without expensive moving blur layers. */
+.yard-haze {
+  filter: none !important;
+  opacity: 0.72;
+  background: radial-gradient(ellipse at center, rgba(61, 150, 187, 0.08), transparent 70%) !important;
+}
+
+.work-light,
+.yard-vehicle i {
+  filter: none !important;
+}
+
+.work-light::after {
+  box-shadow: 0 0 10px 2px rgba(180, 231, 255, 0.28) !important;
+}
+
+/* Large backdrop blurs are expensive in Chromium while screen recording.
+   Use more opaque surfaces and borders instead. */
+.command-bar,
+.selected-container-bar,
+.yard-legend,
+.operator-dock,
+.agent-dock-tab,
+.agent-dock-surface,
+.bay-lock-banner {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.command-bar {
+  background: linear-gradient(100deg, rgba(3, 14, 25, 0.97), rgba(7, 22, 35, 0.94)) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34), inset 0 1px rgba(255, 255, 255, 0.04) !important;
+}
+
+.operator-dock,
+.agent-dock-surface {
+  background: rgba(4, 16, 27, 0.95) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.04) !important;
+}
+
+.agent-dock-tab {
+  background: linear-gradient(135deg, rgba(6, 35, 50, 0.98), rgba(3, 17, 28, 0.96)) !important;
+  box-shadow: -6px 10px 22px rgba(0, 0, 0, 0.3) !important;
+}
+
+.selected-container-bar {
+  background: rgba(32, 22, 8, 0.96) !important;
+}
+
+.yard-legend,
+.bay-lock-banner {
+  background-color: rgba(3, 14, 23, 0.94) !important;
+}
+
+/* Keep route semantics but avoid permanent SVG glow/dash work. */
+.route-line,
+.yard-stale .route-line {
+  filter: none !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* Physical containers stay 2.5D; reduce unnecessary per-card compositor pressure. */
+.container-unit {
+  transform-style: flat !important;
+  filter: none;
+}
+
+.container-unit.is-top:hover,
+.container-unit.is-selected {
+  filter: brightness(1.08) !important;
+}
+
+.container-body {
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.44), inset 0 1px rgba(255, 255, 255, 0.14), inset 0 -4px 8px rgba(0, 0, 0, 0.14) !important;
+}
+
+/* Do not auto-slide the agent panel merely because the pointer crosses it.
+   Explicit click-open state is steadier during a recorded demo. */
+.agent-dock:not(.is-open):hover,
+.agent-dock:not(.is-open):focus-within {
+  right: -328px !important;
+}
+
+/* Preserve short state/action transitions, but make them snappier. */
+.crane-spreader {
+  transition-duration: 320ms !important;
+}
+
+/* Accessibility and an emergency low-motion recording path. */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-shell *,
+  .cinematic-shell *::before,
+  .cinematic-shell *::after {
+    animation: none !important;
+    transition-duration: 80ms !important;
+    scroll-behavior: auto !important;
+  }
+}
