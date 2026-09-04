@@ -2,7 +2,7 @@
 
 **A live container-yard workspace where a human operator and a browser agent can safely act on the same operational state.**
 
-[Live app](https://bayshift-webmcp.vercel.app/) · [Native WebMCP test](docs/NATIVE_WEBMCP_TEST.md) · [Evaluation notes](docs/EVALS.md)
+[Live app](https://bayshift-webmcp.vercel.app/) · [Demo video](https://youtu.be/Wj5XU4jRvPE) · [Native WebMCP test](docs/NATIVE_WEBMCP_TEST.md) · [Evaluation notes](docs/EVALS.md)
 
 BayShift was built for the OpenAI WebMCP Challenge. It turns the yard itself into a shared working surface: operators can move containers, lock stacks, trigger disruptions, inspect changes, and rewind actions while an agent discovers structured tools for the same world.
 
