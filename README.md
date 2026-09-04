@@ -1,61 +1,62 @@
 # BayShift
 
-BayShift is a shared live container-yard relocation canvas built for the OpenAI WebMCP Challenge. A human yard operator and a browser agent work against the same authoritative operational state through one deterministic logistics engine.
+**A live container-yard workspace where a human operator and a browser agent can safely act on the same operational state.**
 
-This is not a chatbot or a static logistics dashboard. The yard itself is the shared working surface: humans can move containers, select retrieval targets, lock stacks, trigger disruptions, inspect changes, and rewind actions while an agent discovers structured WebMCP tools for the same world.
+[Live app](https://bayshift-webmcp.vercel.app/) · [Native WebMCP test](docs/NATIVE_WEBMCP_TEST.md) · [Evaluation notes](docs/EVALS.md)
 
-## The shared-state differentiator
+BayShift was built for the OpenAI WebMCP Challenge. It turns the yard itself into a shared working surface: operators can move containers, lock stacks, trigger disruptions, inspect changes, and rewind actions while an agent discovers structured tools for the same world.
 
-The seeded challenge scenario starts at yard `stateVersion` 37 with target `CX-204` buried under `CX-188` and `CX-203` in stack `B02`.
+This is not a chatbot bolted onto a dashboard. The human UI and the agent tool surface both call one deterministic logistics engine. There is no shadow copy of the yard and no second set of rules.
 
-Every successful mutation increments `stateVersion`. All destructive agent tools require the exact `expectedStateVersion` that was inspected before planning. If a human changes the yard first, the agent receives `STALE_STATE`, the expected/current versions, and explicit guidance to inspect and replan.
+## Why WebMCP matters here
+
+A container plan can become unsafe seconds after it is calculated. A human may lock a destination, a crane lane may go offline, or a higher-priority truck may arrive while the agent is still reasoning.
+
+BayShift gives the agent native, typed capabilities to inspect, simulate, validate, execute, recover, and rewind. Destructive tools must include the exact `expectedStateVersion` observed during planning. When the yard changes first, the old command is rejected with `STALE_STATE`; the agent must inspect the difference and replan from reality.
 
 ```text
-Agent inspects v37 -> Agent plans for v37 -> Human locks B01 -> Yard becomes v38
-        -> Agent's v37 move is rejected -> Agent inspects v38 -> Agent replans
+Agent inspects v37 → plans for v37 → human locks B01 → yard becomes v38
+                 → old move rejected → inspect changes → replan safely
 ```
+
+That creates a collaboration model ordinary page automation cannot provide: both sides can act, neither silently overwrites the other, and every accepted or rejected action remains visible.
 
 ## Architecture
 
-- `src/domain/types.ts` — container, stack, snapshot, constraint, plan, and audit records.
-- `src/domain/scenario.ts` — deterministic five-stack hero scenario.
-- `src/domain/engine.ts` — shared validation, mutations, bounded planning, change inspection, and rewind.
-- `src/webmcp/schemas.ts` — strict JSON schemas and agent-facing tool descriptions.
-- `src/webmcp/bridge.ts` — native `document.modelContext.registerTool` integration and evaluator fallback.
-- `src/components/BayCanvas.tsx` — cinematic 2.5D operator yard with selection, drag/drop, stack locks, live routes, and target control.
-- `src/components/AgentOperationsPanel.tsx` — edge-mounted agent dock with compact commands, plan preview, rule validation, stale-state status, and tool trace.
-- `src/components/LedgerPanel.tsx` — expandable HUMAN/AGENT/SYSTEM action trail with before/after inspection and physical rewind.
-- `public/bayshift-yard-night.jpg` — the optimized night-port atmosphere used behind the interactive yard.
+![BayShift shared-state WebMCP architecture](docs/architecture.svg)
 
-Human and agent mutations call the same domain functions. There is no separate agent copy of the yard.
+- **React operator surface:** 2.5D yard, priority queue, plan preview, disruptions, tool trace, and rewind controls.
+- **Native WebMCP bridge:** nine tools registered with `document.modelContext.registerTool`, strict JSON schemas, and read/write annotations.
+- **Authoritative domain engine:** one implementation of LIFO, height, lock, outage, weight, compatibility, retrieval, and rewind rules for both actors.
+- **Versioned state and audit ledger:** monotonic `stateVersion`, HUMAN/AGENT/SYSTEM provenance, before/after snapshots, changed entities, and structured conflict responses.
 
-## WebMCP tools
+The implementation lives in:
 
-| Tool | Mode | Purpose |
+- `src/domain/engine.ts` — validation, bounded planning, mutations, change inspection, and rewind.
+- `src/domain/scenario.ts` — deterministic five-stack challenge scenarios.
+- `src/webmcp/schemas.ts` — agent-facing tool contracts.
+- `src/webmcp/bridge.ts` — native WebMCP registration and execution.
+- `src/components/` — the shared visual workbench, agent dock, metrics, and ledger.
+
+## WebMCP tool surface
+
+| Tool | Mode | What it enables |
 | --- | --- | --- |
-| `inspect_yard` | Read | Version, target, exposure, blockers, constraints, disruptions, and destinations |
-| `get_container` | Read | One container and its live physical location |
-| `analyze_blockers` | Read | Physical blocker chain and immediate legal destinations |
-| `validate_move` | Read | Six-rule dry-run of one relocation |
-| `simulate_relocations` | Read | Deterministic minimum-move candidate plans without mutation |
-| `execute_move` | Write | Version-guarded authoritative relocation |
-| `retrieve_target` | Write | Version-guarded exposed-target retrieval |
-| `inspect_changes` | Read | Concise changes after a known version |
-| `rewind_yard` | Write | Version-guarded physical snapshot restoration |
+| `inspect_yard` | Read | Read the current version, target, blockers, disruptions, and legal destinations |
+| `get_container` | Read | Locate one container and return its live domain record |
+| `analyze_blockers` | Read | Explain the physical blocker chain and immediate legal moves |
+| `validate_move` | Read | Dry-run one relocation against all six yard rules |
+| `simulate_relocations` | Read | Rank deterministic minimum-move plans without mutation |
+| `execute_move` | Write | Apply one version-guarded relocation with AGENT provenance |
+| `retrieve_target` | Write | Retrieve an exposed target at the inspected version |
+| `inspect_changes` | Read | Return the auditable changes after a known version |
+| `rewind_yard` | Write | Restore physical state while preserving monotonic history |
 
-## Logistics rules
+Failures are structured and never partially mutate the yard.
 
-- LIFO / top-container-only movement
-- maximum stack height
-- locked stack, locked container, and crane-lane outage rejection
-- heavier cargo cannot be placed on lighter cargo
-- reserved destination compatibility
-- priority and truck-deadline urgency metadata
-- target must be physically exposed before retrieval
+## Run locally
 
-Failures are structured and never partially mutate state.
-
-## Local development
+Requires Node.js 18 or newer.
 
 ```bash
 npm install
@@ -64,7 +65,7 @@ npm run dev
 
 Open `http://127.0.0.1:5173/`.
 
-Validation:
+Run the complete verification suite:
 
 ```bash
 npm test
@@ -72,28 +73,25 @@ npm run build
 node scripts/verify_manual_flow.mjs
 ```
 
-The current automated suite contains 18 passing domain and WebMCP contract tests.
+The repository includes 18 domain and WebMCP contract tests.
 
-## Challenge demo
+## Judge-ready walkthrough
 
-1. Reset to the deterministic v37 scenario.
-2. Open the **Agent** edge tab, then use **Inspect yard** and **Plan route**.
-3. Click **Human: lock B01** on the plan preview. The shared yard becomes v38.
-4. Click **Execute step 1**. The retained v37 command is rejected with `STALE_STATE`.
-5. Inspect the yard and plan an alternative v38 route.
-6. Execute one move, inspect/replan, then execute the final blocker move.
-7. Retrieve exposed `CX-204`.
-8. Rewind retrieval and inspect the physically restored yard.
-9. Trigger **Late Truck** or the B05 crane outage and inspect the new priorities or constraints.
+1. Open the live app in ChatGPT's in-app browser or Chrome with WebMCP enabled.
+2. Ask the agent to inspect the yard and identify the blockers above the priority target.
+3. Ask it to simulate legal relocation plans without moving anything.
+4. Change the yard from the human UI, then let the retained agent command fail safely with `STALE_STATE`.
+5. Ask the agent to inspect changes, replan, and execute one move per fresh version.
+6. Retrieve the exposed target, inspect the shared ledger, and rewind the physical action.
 
-This full sequence has been verified through native WebMCP in a live browser, including real tool discovery and mutations.
+For exact tool inputs and expected responses, follow [docs/NATIVE_WEBMCP_TEST.md](docs/NATIVE_WEBMCP_TEST.md).
 
-## Project status
+## Current scope
 
-The shared-state domain, native nine-tool WebMCP surface, seeded conflict/recovery scenario, cinematic live-yard interface, browser flow, and production build are verified. The remaining production sequence is deployment, a clean fresh-agent demo recording, narration, voiceover synchronization, and Devpost submission.
+The challenge build is deployed and the complete native WebMCP flow has been exercised in a live browser: discovery, inspection, simulation, stale-command rejection, recovery planning, authoritative movement, retrieval, audit, and rewind.
 
-See [BUILD_STATUS.md](BUILD_STATUS.md), [docs/EVALS.md](docs/EVALS.md), and [docs/NATIVE_WEBMCP_TEST.md](docs/NATIVE_WEBMCP_TEST.md) for implementation and evaluator details.
+The planner is deliberately bounded for the challenge-sized yard. State is client-local and resets on reload. The visual yard uses lightweight DOM/CSS 2.5D rendering to keep the production bundle responsive.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Released under the [MIT License](LICENSE).
