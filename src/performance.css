@@ -116,3 +116,42 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Keep scroll input on the compositor. The expanded ledger previously blurred
+   almost the whole yard on every wheel/touch event, which caused visible lag. */
+html,
+body,
+#root {
+  scroll-behavior: auto !important;
+  overscroll-behavior: none;
+}
+
+.ledger-section,
+.event-pulse-banner,
+.modal-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ledger-section {
+  background: linear-gradient(110deg, rgba(3, 16, 27, 0.98), rgba(5, 19, 30, 0.96)) !important;
+}
+
+.event-pulse-banner {
+  background-color: rgba(5, 19, 30, 0.98) !important;
+}
+
+.agent-dock-surface,
+.ledger-expanded-content,
+.change-inspector > div,
+.modal-body {
+  overscroll-behavior: contain;
+  contain: paint;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto !important;
+}
+
+.operational-yard {
+  contain: layout paint;
+}
